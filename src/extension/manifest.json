@@ -4,8 +4,8 @@
   "manifest_version": 3,
   "author": "Jakub Holy <https://holyjak.cz/>",
   "icons": {
-    "16": "autoformfiller_icon.png",
-    "128": "autoformfiller_icon.png"
+    "16": "autofill_16x16-light.png",
+    "128": "autofill_128x128-light.png"
   },
   "description": "Enable testers to fill forms automatically/on-demand based on (sets of) rules they wrote / captured.",
   "permissions": [
@@ -38,8 +38,8 @@
   "action": {
     "default_title": "AutoFormFiller",
     "default_icon": {
-      "16": "autoformfiller_icon.png",
-      "128": "autoformfiller_icon.png"
+      "16": "autofill_16x16-light.png",
+      "128": "autofill_128x128-light.png"
     }
   },
   "options_page": "options.html",
