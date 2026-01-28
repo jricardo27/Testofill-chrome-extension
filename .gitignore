@@ -1,5 +1,6 @@
 .DS_Store
 node_modules/
+auto-form-filler.zip
 src/extension-libs.js
 src/testofill-content.js
 src/extension.crx

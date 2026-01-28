@@ -1,5 +1,5 @@
 {
-  "name": "Testofill",
+  "name": "auto-form-filler",
   "version": "1.0.0",
   "type": "module",
   "devDependencies": {
@@ -14,7 +14,8 @@
     "underscore": "~1.9.1"
   },
   "scripts": {
-    "bundle-deps": "esbuild --bundle src/bundled-npm-deps-entrypoint.js --outfile=src/extension/lib/bundled-npm-deps.js --format=esm"
+    "bundle-deps": "esbuild --bundle src/bundled-npm-deps-entrypoint.js --outfile=src/extension/lib/bundled-npm-deps.js --format=esm",
+    "package": "npm run bundle-deps && cd src/extension && zip -r ../../auto-form-filler.zip ."
   },
   "dependencies": {
     "webext-dynamic-content-scripts": "^10.0.1",

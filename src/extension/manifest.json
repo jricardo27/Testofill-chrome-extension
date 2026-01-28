@@ -1,11 +1,11 @@
 {
-  "name": "Testofill, Form Filler for Testers",
+  "name": "AutoFormFiller",
   "version": "2.0.1",
   "manifest_version": 3,
   "author": "Jakub Holy <https://holyjak.cz/>",
   "icons": {
-    "16": "autofill_16x16-light.png",
-    "128": "autofill_128x128-light.png"
+    "16": "autoformfiller_icon.png",
+    "128": "autoformfiller_icon.png"
   },
   "description": "Enable testers to fill forms automatically/on-demand based on (sets of) rules they wrote / captured.",
   "permissions": [
@@ -16,33 +16,35 @@
     "tabs"
   ],
   "optional_permissions": [],
-  "optional_host_permissions": ["*://*/*"],
+  "optional_host_permissions": [
+    "*://*/*"
+  ],
   "content_scripts": [
     {
-      "matches" : ["https://holyjak.cz/*"],
+      "matches": [
+        "https://holyjak.cz/*"
+      ],
       "js": [
         "content/lib/sizzle-20140125.min.js",
         "content/lib/underscore-min.js",
         "content/lib/chance.min.js",
         "content/generative.js",
         "content/testofill-run.js"
-    ],
+      ],
       "run_at": "document_end",
       "all_frames": true
     }
   ],
-
   "action": {
-    "default_title": "Testofill",
+    "default_title": "AutoFormFiller",
     "default_icon": {
-      "16": "autofill_16x16-light.png",
-      "128": "autofill_128x128-light.png"
+      "16": "autoformfiller_icon.png",
+      "128": "autoformfiller_icon.png"
     }
-	},
+  },
   "options_page": "options.html",
   "background": {
     "service_worker": "service-worker.js",
     "type": "module"
-
   }
 }
