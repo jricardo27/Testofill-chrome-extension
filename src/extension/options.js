@@ -30,8 +30,50 @@ function saveToStorage(json) { // see also events.js: mergeIntoOptions()
     .catch((error) => showError("Saving failed: " + error));
 }
 
+function validateOptions(json) {
+  if (!json || typeof json !== 'object') {
+    return "Root must be a JSON object.";
+  }
+  if (!json.forms) {
+    return "Missing 'forms' object.";
+  }
+
+  // Validate forms
+  for (const [name, rule] of Object.entries(json.forms)) {
+    // Legacy array support or new object support
+    if (Array.isArray(rule)) {
+      // Legacy: Array of rules for a key (which is the regex)
+      // We can't easily validate the key as regex here without try-catch, but structure is:
+      // "regex": [{name, fields...}]
+      for (let i = 0; i < rule.length; i++) {
+        const subRule = rule[i];
+        if (!subRule.fields) return `Form "${name}" [index ${i}] missing 'fields'`;
+      }
+    } else {
+      // New schema: { urlPattern, fields }
+      if (!rule.urlPattern) return `Form "${name}" missing 'urlPattern'`;
+      if (!rule.fields) return `Form "${name}" missing 'fields'`;
+      if (!Array.isArray(rule.fields)) return `Form "${name}" 'fields' must be an array`;
+
+      for (let i = 0; i < rule.fields.length; i++) {
+        const field = rule.fields[i];
+        if (!field.selector && !field.query) {
+          return `Form "${name}" field #${i + 1} missing 'selector' or 'query'`;
+        }
+      }
+    }
+  }
+
+  return null; // No error
+}
+
 function save_options(editor) {
   var rules = editor.get();
+  var error = validateOptions(rules);
+  if (error) {
+    showError("Validation Error: " + error);
+    return;
+  }
   saveToStorage(rules);
 }
 
