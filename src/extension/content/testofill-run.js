@@ -10,20 +10,101 @@
  *  [{"query": "[name='q']", "value": "Hi!"}]}
  *
  */
-function fillForms(ruleSet) {
+//---------------------------------------------------------------------- HELPERS
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitForElement(selector, timeout = 5000) {
+  const startTime = Date.now();
+  while (document.querySelector(selector) === null) {
+    if (Date.now() - startTime > timeout) {
+      console.warn(`Testofill: Timeout waiting for selector: ${selector}`);
+      return false;
+    }
+    await sleep(100);
+  }
+  return true;
+}
+
+function processPlaceholders(value) {
+  if (typeof value !== 'string') return value;
+
+  const now = new Date();
+
+  // {timestamp}
+  value = value.replace(/{timestamp}/g, now.getTime());
+
+  // {random4}
+  value = value.replace(/{random4}/g, () => Math.floor(1000 + Math.random() * 9000));
+
+  // {random6}
+  value = value.replace(/{random6}/g, () => Math.floor(100000 + Math.random() * 900000));
+
+  return value;
+}
+
+//---------------------------------------------------------------------- FILL FORM
+/* Apply the selected rule set to the current page, filling its form(s). */
+//---------------------------------------------------------------------- FILL FORM
+/* Apply the selected rule set to the current page, filling its form(s). */
+async function fillForms(ruleSet) {
   if (typeof ruleSet === 'undefined') return;
 
+  const { options } = await chrome.storage.local.get('testofill.rules');
+  const globalOptions = (options && options.options) || {}; // Structure is rules.options
+  const context = ruleSet.context || {}; // e.g. { country: 'US' }
+
+  // 1. WaitForSelector
+  if (ruleSet.waitForSelector) {
+    console.log(`Testofill: Waiting for selector ${ruleSet.waitForSelector}...`);
+    await waitForElement(ruleSet.waitForSelector);
+  }
+
   var unmatchedSelectors = [];
-  ruleSet.fields.forEach(function (field) {
-    var fieldElms = Sizzle(field.query);
+
+  // Process fields sequentially to support delays
+  for (const field of ruleSet.fields) {
+
+    // Country Filter
+    if (field.country && context.country && field.country !== context.country) {
+      console.debug(`Skipping field ${field.description} due to country mismatch (${field.country} !== ${context.country})`);
+      continue;
+    }
+
+    // 2. Field Delay
+    // Use field delay or fallback to global delay or default 50ms
+    const delay = field.delay !== undefined ? field.delay : (globalOptions.delayBetweenFields || 50);
+    if (delay > 0) {
+      await sleep(delay);
+    }
+
+    var fieldElms = Sizzle(field.selector || field.query); // Support both 'selector' and 'query'
     if (fieldElms.length === 0) {
       unmatchedSelectors.push(field);
     } else {
       fieldElms.forEach(function (inputElm) {
+        // Global Option: Scroll to Field
+        if (globalOptions.scrollToField) {
+          inputElm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        // Global Option: Highlight Field
+        if (globalOptions.highlightField) {
+          const originalBorder = inputElm.style.border;
+          const originalBg = inputElm.style.backgroundColor;
+          inputElm.style.border = '2px solid red';
+          inputElm.style.backgroundColor = '#ffffcc';
+          setTimeout(() => {
+            inputElm.style.border = originalBorder;
+            inputElm.style.backgroundColor = originalBg;
+          }, 1000); // Highlight for 1s
+        }
+
         fillField(inputElm, field);
       });
     }
-  });
+  }
 
   if (unmatchedSelectors.length > 0) {
     console.log("Warning: some fields matched nothing in the set named " +
@@ -35,29 +116,49 @@ function fillForms(ruleSet) {
 
 /* Apply rule to a field to fill it (exec. for each matching field, e.g. radio). */
 function fillField(fieldElm, fieldRule) {
+  // Support generative (legacy)
   if (!_.isUndefined(fieldRule.generate)) {
-    var tmp = fieldRule.generate;
     fieldRule.value = parseTopGenExpr(fieldRule.generate);
-    console.log("Gen random for field %s => %s, gen: %s", fieldRule.query, fieldRule.value, JSON.stringify(fieldRule.generate), fieldRule, tmp);
   }
 
+  // 3. Process Placeholders
+  let valueToFill = processPlaceholders(fieldRule.value);
+
   if (fieldElm.type === 'checkbox') {
-    assertFieldType(fieldElm.type, fieldRule, 'boolean');
-    if (fieldElm.checked === Boolean(fieldRule.value)) return;
+    // boolean check
+    if (String(valueToFill) === 'true') valueToFill = true;
+    if (String(valueToFill) === 'false') valueToFill = false;
+
+    if (fieldElm.checked === Boolean(valueToFill)) return;
     fieldElm.dispatchEvent(new MouseEvent('click', { 'view': window, 'bubbles': true }));
-  } else if (fieldElm.type === 'select-one') { // FIXME reuse select-multi code
-    assertFieldType(fieldElm.type, fieldRule, 'string');
-    if (fieldElm.value === fieldRule.value) return;
-    fieldElm.dispatchEvent(new Event('focus', { bubbles: true })); // In some cases needed for React to see the change
-    fieldElm.value = fieldRule.value;
+  } else if (fieldElm.type === 'file') {
+    // File inputs are read-only for security, just log/notify
+    console.log(`Testofill: Skipping file input ${fieldRule.selector || fieldRule.query}. Manual selection required.`);
+    if (fieldRule.value) console.log(`Expected file: ${fieldRule.value}`);
+    if (fieldRule.note) console.log(`Note: ${fieldRule.note}`);
+    // Optional: Focus it so user sees it
+    fieldElm.focus();
+    fieldElm.click(); // Some browsers allow opening dialog, most block it. Worth a try or just focus.
+  } else if (fieldElm.type === 'select-one') {
+    // assertFieldType(fieldElm.type, fieldRule, 'string'); // Relaxed type check for placeholders
+    if (fieldElm.value === valueToFill) return;
+    fieldElm.dispatchEvent(new Event('focus', { bubbles: true }));
+    fieldElm.value = valueToFill;
     fieldElm.dispatchEvent(new Event('change', { 'view': window, 'bubbles': true }));
   } else if (fieldElm.type === 'select-multiple') {
-    fieldElm.dispatchEvent(new Event('focus', { bubbles: true })); // In some cases needed for React to see the change
-    const value = (fieldRule.value === null) ? [] : fieldRule.value;
+    fieldElm.dispatchEvent(new Event('focus', { bubbles: true }));
+    const value = (valueToFill === null) ? [] : valueToFill;
+    // ... existing select-multiple logic ...
+    if (!Array.isArray(value)) {
+      // Try single value
+      // console.error...
+    }
+    // For now keeping existing logic for arrays, but if placeholder returns string, wrap in array?
+    // Let's assume select-multiple values don't use string placeholders for the array itself usually.
     if (!Array.isArray(value)) {
       console.error("The form element is a select-multiple and thus the value " +
         "to fill in should be null or an array of 0+ values but it is not an array; " +
-        "query: " + fieldRule.query + ", the value: ", value,
+        "query: " + (fieldRule.selector || fieldRule.query) + ", the value: ", value,
         "; the field: ", fieldElm);
       return;
     }
@@ -67,20 +168,23 @@ function fillField(fieldElm, fieldRule) {
     }
     fieldElm.dispatchEvent(new Event('change', { 'view': window, 'bubbles': true }));
   } else if (fieldElm.type === 'radio') {
-    assertFieldType(fieldElm.type, fieldRule, 'string');
-    console.assert(fieldRule.value !== null, `null is not supported for radio fields, you must choose a value; rule query=${fieldRule.query}`);
-    // find the one with matching value or unset all:
-    const wantChecked = (fieldElm.value === fieldRule.value);
+    // Radio buttons
+    // The selector usually targets a group or specific button.
+    // If specific button (e.g. by ID or unique attr), click it if value matches?
+    // Actually existing logic: find the one with matching value.
+    const wantChecked = (fieldElm.value === valueToFill);
     if (wantChecked === fieldElm.checked) return;
-    fieldElm.dispatchEvent(new MouseEvent('click', { 'view': window, 'bubbles': true }));
+    if (wantChecked) {
+      fieldElm.dispatchEvent(new MouseEvent('click', { 'view': window, 'bubbles': true }));
+    }
   } else if (fieldRule.textContent) {
-    fieldElm.dispatchEvent(new Event('focus', { bubbles: true })); // In some cases needed for React to see the change
-    fieldElm.textContent = fieldRule.textContent; // labels, text elements
-    fieldElm.dispatchEvent(new Event('input', { bubbles: true })); // Notify e.g. React of the changed value
+    fieldElm.dispatchEvent(new Event('focus', { bubbles: true }));
+    fieldElm.textContent = fieldRule.textContent;
+    fieldElm.dispatchEvent(new Event('input', { bubbles: true }));
   } else { // Typically a text <input>
-    fieldElm.dispatchEvent(new Event('focus', { bubbles: true })); // In some cases needed for React to see the change
-    fieldElm.value = fieldRule.value;
-    fieldElm.dispatchEvent(new Event('input', { bubbles: true })); // Notify e.g. React of the changed value
+    fieldElm.dispatchEvent(new Event('focus', { bubbles: true }));
+    fieldElm.value = valueToFill;
+    fieldElm.dispatchEvent(new Event('input', { bubbles: true }));
   }
 }
 
@@ -112,10 +216,10 @@ function makeTestofillJsonFromPageForms(tabUrl) {
   var excludedTypes = ['button', 'submit', 'reset', 'form', 'hidden'];
   var debugStrs = [];
 
-  if (tabUrl != document.location.toString()) {
-    console.debug("document.location != tabUrl", { loc: document.location.toString(), tabUrl });
-    return null; // skip forms in iframes etc.
-  }
+  // if (tabUrl != document.location.toString()) {
+  //   console.debug("document.location != tabUrl", { loc: document.location.toString(), tabUrl });
+  //   return null; // skip forms in iframes etc.
+  // }
 
   var formListJson =
     _.map(document.forms, function (form, idx) {
@@ -210,7 +314,13 @@ function handleMessage(message, sender, sendResponseFn) {
   } else if (message.id === "save_form") {
     const { tabUrl } = payload;
     const extractedForms = makeTestofillJsonFromPageForms(tabUrl);
-    sendResponseFn(extractedForms);
+    // Send back to SW; we can't use sendResponseFn reliably for multiple frames/async
+    if (extractedForms && extractedForms.length > 0) {
+      chrome.runtime.sendMessage({
+        id: 'save_form_captured',
+        payload: { url: tabUrl, forms: extractedForms }
+      });
+    }
   } else if (message.id === "extracted_forms_saved") {
     alert("Input from " + payload.count + " forms has been saved for " + payload.url +
       (payload.count ? `\nGive it a name in the extension options if you want multiple values for the form.` : '') +

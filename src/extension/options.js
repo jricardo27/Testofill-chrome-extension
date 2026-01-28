@@ -37,16 +37,66 @@ function save_options(editor) {
 
 function restore_options(editor) {
   var exampleJson = {
+    "name": "Testofill Configuration Example",
+    "version": "1.0.0",
+    "description": "Example configuration for Testofill form auto-filling",
+    "environments": {
+      "example": {
+        "us": "https://example-us.app.com/",
+        "au": "https://example-au.app.com/"
+      }
+    },
     "forms": {
-      "duckduckgo.com": [
-        {
-          "name": "(optional) Search for testofill",
-          "doc": "(optional) This is an example rule set; it **IS NOT SAVED** so click [Save] if you want to use it",
-          "fields": [
-            { "query": "[name='q']", "value": "Testofill rocks!" }
-          ]
-        }
-      ]
+      "Signup Form": {
+        "urlPattern": "/signup/",
+        "waitForSelector": "input[type='email']",
+        "fields": [
+          {
+            "selector": "input[type='email']",
+            "value": "test.user.t{timestamp}@example.com",
+            "type": "input",
+            "description": "Email address",
+            "delay": 50
+          },
+          {
+            "selector": "input[type='password']",
+            "value": "ExamplePassword123!",
+            "type": "input",
+            "description": "Password",
+            "delay": 50
+          },
+          {
+            "selector": "input[type='checkbox']",
+            "value": "true",
+            "type": "checkbox",
+            "description": "Accept terms and conditions",
+            "delay": 50
+          }
+        ]
+      },
+      "Upload Bill Form": {
+        "urlPattern": "/upload-bill",
+        "waitForSelector": "input[type='file']",
+        "fields": [
+          {
+            "selector": "input[type='file']",
+            "value": "",
+            "type": "file",
+            "description": "Bill file upload - requires manual file selection",
+            "note": "Cannot auto-fill file inputs, must select manually"
+          }
+        ]
+      }
+    },
+    "options": {
+      "delayBetweenFields": 50,
+      "scrollToField": true,
+      "highlightField": true,
+      "confirmBeforeSubmit": false,
+      "debugMode": false,
+      "autoDetectCountry": true,
+      "retryFailedFields": true,
+      "maxRetries": 3
     }
   };
 

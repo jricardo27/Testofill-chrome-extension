@@ -1,0 +1,704 @@
+{
+  "name": "Testofill Configuration Example",
+  "version": "1.0.0",
+  "description": "Example configuration for Testofill form auto-filling",
+  "environments": {
+    "example": {
+      "us": "https://example-us.app.com/",
+      "au": "https://example-au.app.com/"
+    }
+  },
+  "forms": {
+    "Signup Form": {
+      "urlPattern": "/signup/",
+      "waitForSelector": "input[type='email']",
+      "fields": [
+        {
+          "selector": "input[type='email']",
+          "value": "test.user.t{timestamp}@example.com",
+          "type": "input",
+          "description": "Email address",
+          "delay": 50
+        },
+        {
+          "selector": "input[type='password']",
+          "value": "ExamplePassword123!",
+          "type": "input",
+          "description": "Password",
+          "delay": 50
+        },
+        {
+          "selector": "input[type='checkbox']",
+          "value": "true",
+          "type": "checkbox",
+          "description": "Accept terms and conditions",
+          "delay": 50
+        }
+      ]
+    },
+    "Signup Form Alternative": {
+      "urlPattern": "/signup/",
+      "waitForSelector": "input[name='email']",
+      "fields": [
+        {
+          "selector": "input[name='email']",
+          "value": "test.user.t{timestamp}@example.com",
+          "type": "input",
+          "description": "Email address",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='password']",
+          "value": "ExamplePassword123!",
+          "type": "input",
+          "description": "Password",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='acceptTerms']",
+          "value": "true",
+          "type": "checkbox",
+          "description": "Accept terms and conditions",
+          "delay": 50
+        }
+      ]
+    },
+    "Personal Information Form": {
+      "urlPattern": "/account-verification/",
+      "waitForSelector": "#first_name",
+      "fields": [
+        {
+          "selector": "input[name='firstName']",
+          "value": "John",
+          "type": "input",
+          "description": "First name",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='middleNames']",
+          "value": "Michael",
+          "type": "input",
+          "description": "Middle names",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='lastName']",
+          "value": "ExampleUser{timestamp}",
+          "type": "input",
+          "description": "Last name (generic example)",
+          "delay": 50
+        },
+        {
+          "selector": "select[name='dateOfBirthDay']",
+          "value": "15",
+          "type": "select",
+          "description": "Birth day",
+          "delay": 50
+        },
+        {
+          "selector": "select[name='dateOfBirthMonth']",
+          "value": "5",
+          "type": "select",
+          "description": "Birth month (June)",
+          "delay": 50
+        },
+        {
+          "selector": "select[name='dateOfBirthYear']",
+          "value": "1990",
+          "type": "select",
+          "description": "Birth year",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='address']",
+          "value": "123 Main Street, City State 12345",
+          "type": "input",
+          "description": "Residential address",
+          "delay": 100
+        },
+        {
+          "selector": "input[name='socialSecurityNumber']",
+          "value": "XXX-XX-{random4}",
+          "type": "input",
+          "description": "SSN (US only, formatted automatically with random last 4)",
+          "delay": 50,
+          "country": "US"
+        },
+        {
+          "selector": "input[name='confirmAgreements']",
+          "value": "true",
+          "type": "checkbox",
+          "description": "Confirm agreements",
+          "delay": 50
+        }
+      ]
+    },
+    "Personal Information - Verification Fails": {
+      "urlPattern": "/account-verification/",
+      "waitForSelector": "#first_name",
+      "fields": [
+        {
+          "selector": "input[name='firstName']",
+          "value": "Jane",
+          "type": "input",
+          "description": "First name",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='middleNames']",
+          "value": "Marie",
+          "type": "input",
+          "description": "Middle names",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='lastName']",
+          "value": "ExampleUser{timestamp}",
+          "type": "input",
+          "description": "Last name (generic example)",
+          "delay": 50
+        },
+        {
+          "selector": "select[name='dateOfBirthDay']",
+          "value": "20",
+          "type": "select",
+          "description": "Birth day",
+          "delay": 50
+        },
+        {
+          "selector": "select[name='dateOfBirthMonth']",
+          "value": "8",
+          "type": "select",
+          "description": "Birth month (August)",
+          "delay": 50
+        },
+        {
+          "selector": "select[name='dateOfBirthYear']",
+          "value": "1985",
+          "type": "select",
+          "description": "Birth year",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='address']",
+          "value": "456 Pitt Street, Sydney NSW 2000 Australia",
+          "type": "input",
+          "description": "Residential address",
+          "delay": 100
+        },
+        {
+          "selector": "input[name='socialSecurityNumber']",
+          "value": "222-02-{random4}",
+          "type": "input",
+          "description": "SSN (US only, formatted automatically with random last 4)",
+          "delay": 50,
+          "country": "US"
+        },
+        {
+          "selector": "input[name='confirmAgreements']",
+          "value": "true",
+          "type": "checkbox",
+          "description": "Confirm agreements",
+          "delay": 50
+        }
+      ]
+    },
+    "Personal Information - Pay It Only": {
+      "urlPattern": "/account-verification/",
+      "waitForSelector": "#first_name",
+      "fields": [
+        {
+          "selector": "input[name='firstName']",
+          "value": "Bob",
+          "type": "input",
+          "description": "First name",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='middleNames']",
+          "value": "James",
+          "type": "input",
+          "description": "Middle names",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='lastName']",
+          "value": "ExampleUser{timestamp}",
+          "type": "input",
+          "description": "Last name (generic example)",
+          "delay": 50
+        },
+        {
+          "selector": "select[name='dateOfBirthDay']",
+          "value": "10",
+          "type": "select",
+          "description": "Birth day",
+          "delay": 50
+        },
+        {
+          "selector": "select[name='dateOfBirthMonth']",
+          "value": "3",
+          "type": "select",
+          "description": "Birth month (March)",
+          "delay": 50
+        },
+        {
+          "selector": "select[name='dateOfBirthYear']",
+          "value": "1992",
+          "type": "select",
+          "description": "Birth year",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='address']",
+          "value": "789 George Street, Sydney NSW 2000 Australia",
+          "type": "input",
+          "description": "Residential address",
+          "delay": 100
+        },
+        {
+          "selector": "input[name='socialSecurityNumber']",
+          "value": "333-03-{random4}",
+          "type": "input",
+          "description": "SSN (US only, formatted automatically with random last 4)",
+          "delay": 50,
+          "country": "US"
+        },
+        {
+          "selector": "input[name='confirmAgreements']",
+          "value": "true",
+          "type": "checkbox",
+          "description": "Confirm agreements",
+          "delay": 50
+        }
+      ]
+    },
+    "Personal Information - Both Services": {
+      "urlPattern": "/account-verification/",
+      "waitForSelector": "#first_name",
+      "fields": [
+        {
+          "selector": "input[name='firstName']",
+          "value": "Alice",
+          "type": "input",
+          "description": "First name",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='middleNames']",
+          "value": "Rose",
+          "type": "input",
+          "description": "Middle names",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='lastName']",
+          "value": "ExampleUser{timestamp}",
+          "type": "input",
+          "description": "Last name (generic example)",
+          "delay": 50
+        },
+        {
+          "selector": "select[name='dateOfBirthDay']",
+          "value": "25",
+          "type": "select",
+          "description": "Birth day",
+          "delay": 50
+        },
+        {
+          "selector": "select[name='dateOfBirthMonth']",
+          "value": "11",
+          "type": "select",
+          "description": "Birth month (November)",
+          "delay": 50
+        },
+        {
+          "selector": "select[name='dateOfBirthYear']",
+          "value": "1988",
+          "type": "select",
+          "description": "Birth year",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='address']",
+          "value": "321 Broadway, New York NY 10001",
+          "type": "input",
+          "description": "Residential address",
+          "delay": 100
+        },
+        {
+          "selector": "input[name='socialSecurityNumber']",
+          "value": "444-04-{random4}",
+          "type": "input",
+          "description": "SSN (US only, formatted automatically with random last 4)",
+          "delay": 50,
+          "country": "US"
+        },
+        {
+          "selector": "input[name='confirmAgreements']",
+          "value": "true",
+          "type": "checkbox",
+          "description": "Confirm agreements",
+          "delay": 50
+        }
+      ]
+    },
+    "Personal Information - Declined Card": {
+      "urlPattern": "/account-verification/",
+      "waitForSelector": "#first_name",
+      "fields": [
+        {
+          "selector": "input[name='firstName']",
+          "value": "Charlie",
+          "type": "input",
+          "description": "First name",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='middleNames']",
+          "value": "David",
+          "type": "input",
+          "description": "Middle names",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='lastName']",
+          "value": "ExampleUser{timestamp}",
+          "type": "input",
+          "description": "Last name (generic example)",
+          "delay": 50
+        },
+        {
+          "selector": "select[name='dateOfBirthDay']",
+          "value": "5",
+          "type": "select",
+          "description": "Birth day",
+          "delay": 50
+        },
+        {
+          "selector": "select[name='dateOfBirthMonth']",
+          "value": "9",
+          "type": "select",
+          "description": "Birth month (September)",
+          "delay": 50
+        },
+        {
+          "selector": "select[name='dateOfBirthYear']",
+          "value": "1991",
+          "type": "select",
+          "description": "Birth year",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='address']",
+          "value": "654 Market Street, San Francisco CA 94103",
+          "type": "input",
+          "description": "Residential address",
+          "delay": 100
+        },
+        {
+          "selector": "input[name='socialSecurityNumber']",
+          "value": "555-05-{random4}",
+          "type": "input",
+          "description": "SSN (US only, formatted automatically with random last 4)",
+          "delay": 50,
+          "country": "US"
+        },
+        {
+          "selector": "input[name='confirmAgreements']",
+          "value": "true",
+          "type": "checkbox",
+          "description": "Confirm agreements",
+          "delay": 50
+        }
+      ]
+    },
+    "Mobile Phone Verification": {
+      "urlPattern": "/account-verification/mobile",
+      "waitForSelector": "input[name='phoneNumber']",
+      "fields": [
+        {
+          "selector": "input[name='phoneNumber']",
+          "value": "+1XXX{random6}",
+          "type": "input",
+          "description": "Mobile phone number (AU test prefix with random 6 digits)",
+          "delay": 100
+        },
+        {
+          "selector": "input[name='email']",
+          "value": "test.user.t{timestamp}@example.com",
+          "type": "input",
+          "description": "Email address",
+          "delay": 50
+        }
+      ]
+    },
+    "SMS Verification Code": {
+      "urlPattern": "/account-verification/code",
+      "waitForSelector": "input[name='verificationCode']",
+      "fields": [
+        {
+          "selector": "input[name='verificationCode']",
+          "value": "{random6}",
+          "type": "input",
+          "description": "6-digit SMS verification code (last 6 digits of phone number)",
+          "delay": 50
+        }
+      ]
+    },
+    "ID Document Selection": {
+      "urlPattern": "/account-verification/document",
+      "waitForSelector": "select[name='idType']",
+      "fields": [
+        {
+          "selector": "select[name='idType']",
+          "value": "DRIVERS_LICENCE",
+          "type": "select",
+          "description": "ID document type",
+          "delay": 50
+        },
+        {
+          "selector": "select[name='idState']",
+          "value": "NSW",
+          "type": "select",
+          "description": "ID document state (AU)",
+          "delay": 50,
+          "country": "AU"
+        },
+        {
+          "selector": "select[name='idState']",
+          "value": "CA",
+          "type": "select",
+          "description": "ID document state (US)",
+          "delay": 50,
+          "country": "US"
+        }
+      ]
+    },
+    "Upload Bill Form": {
+      "urlPattern": "/upload-bill",
+      "waitForSelector": "input[type='file']",
+      "fields": [
+        {
+          "selector": "input[type='file']",
+          "value": "",
+          "type": "file",
+          "description": "Bill file upload - requires manual file selection",
+          "note": "Cannot auto-fill file inputs, must select manually"
+        }
+      ]
+    },
+    "Bill Details (Manual Entry)": {
+      "urlPattern": "/bill-details|/bill-review",
+      "waitForSelector": "input[name='billerName']",
+      "fields": [
+        {
+          "selector": "input[name='billerName']",
+          "value": "Example Utility Company",
+          "type": "input",
+          "description": "Biller name",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='accountNumber']",
+          "value": "EA123456789",
+          "type": "input",
+          "description": "Account number",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='amount']",
+          "value": "250.00",
+          "type": "input",
+          "description": "Bill amount",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='dueDate']",
+          "value": "2025-12-31",
+          "type": "input",
+          "description": "Due date",
+          "delay": 50
+        }
+      ]
+    },
+    "Payment Method (Stripe)": {
+      "urlPattern": "/payment|/membership",
+      "waitForSelector": "#cardNumber",
+      "fields": [
+        {
+          "selector": "#cardNumber",
+          "value": "4111111111111111",
+          "type": "input",
+          "description": "Card number (test Visa)",
+          "delay": 100
+        },
+        {
+          "selector": "#cardExpiry",
+          "value": "12/25",
+          "type": "input",
+          "description": "Card expiry",
+          "delay": 50
+        },
+        {
+          "selector": "#cardCvc",
+          "value": "123",
+          "type": "input",
+          "description": "Card CVC",
+          "delay": 50
+        },
+        {
+          "selector": "#cardholderName",
+          "value": "Test User",
+          "type": "input",
+          "description": "Cardholder name",
+          "delay": 50
+        }
+      ]
+    },
+    "Payment Method (Declined Card)": {
+      "urlPattern": "/payment|/membership",
+      "waitForSelector": "#cardNumber",
+      "fields": [
+        {
+          "selector": "#cardNumber",
+          "value": "4000000000000341",
+          "type": "input",
+          "description": "Declined card number (test Visa declined)",
+          "delay": 100
+        },
+        {
+          "selector": "#cardExpiry",
+          "value": "12/25",
+          "type": "input",
+          "description": "Card expiry",
+          "delay": 50
+        },
+        {
+          "selector": "#cardCvc",
+          "value": "123",
+          "type": "input",
+          "description": "Card CVC",
+          "delay": 50
+        },
+        {
+          "selector": "#cardholderName",
+          "value": "Charlie Brown",
+          "type": "input",
+          "description": "Cardholder name",
+          "delay": 50
+        }
+      ]
+    },
+    "Membership Tier Selection": {
+      "urlPattern": "/membership/select",
+      "waitForSelector": "input[name='membershipTier']",
+      "fields": [
+        {
+          "selector": "input[name='membershipTier'][value='PAY_LATER']",
+          "value": "true",
+          "type": "radio",
+          "description": "Select Pay Later tier",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='membershipTier'][value='BUILD_CREDIT']",
+          "value": "true",
+          "type": "radio",
+          "description": "Select Build Credit tier",
+          "delay": 50
+        }
+      ]
+    },
+    "Bill Negotiation Form": {
+      "urlPattern": "/negotiate|/bill-negotiation",
+      "waitForSelector": "input[name='billerName']",
+      "fields": [
+        {
+          "selector": "input[name='billerName']",
+          "value": "Example Utility Company",
+          "type": "input",
+          "description": "Biller name",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='accountNumber']",
+          "value": "EA987654321",
+          "type": "input",
+          "description": "Account number",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='outstandingAmount']",
+          "value": "1500.00",
+          "type": "input",
+          "description": "Outstanding amount",
+          "delay": 50
+        }
+      ]
+    },
+    "User Settings": {
+      "urlPattern": "/settings|/profile",
+      "waitForSelector": "input[name='email']",
+      "fields": [
+        {
+          "selector": "input[name='email']",
+          "value": "test.user.t{timestamp}@example.com",
+          "type": "input",
+          "description": "Email address",
+          "delay": 50
+        },
+        {
+          "selector": "input[name='phoneNumber']",
+          "value": "+1XXX{random6}",
+          "type": "input",
+          "description": "Phone number (AU test prefix with random 6 digits)",
+          "delay": 50
+        }
+      ]
+    }
+  },
+  "workflows": {
+    "Complete Signup": {
+      "description": "Complete signup and verification process",
+      "steps": [
+        "Signup Form",
+        "Personal Information Form",
+        "Mobile Phone Verification",
+        "SMS Verification Code",
+        "ID Document Selection"
+      ],
+      "autoSubmit": false,
+      "delayBetweenSteps": 500
+    },
+    "Quick Bill Upload": {
+      "description": "Fill forms for quick bill upload",
+      "steps": [
+        "Upload Bill Form",
+        "Bill Details (Manual Entry)"
+      ],
+      "autoSubmit": false,
+      "delayBetweenSteps": 300
+    }
+  },
+  "options": {
+    "delayBetweenFields": 50,
+    "scrollToField": true,
+    "highlightField": true,
+    "confirmBeforeSubmit": false,
+    "debugMode": false,
+    "autoDetectCountry": true,
+    "retryFailedFields": true,
+    "maxRetries": 3
+  },
+  "notes": [
+    "This is an example configuration for demonstration purposes",
+    "Replace placeholder values with actual test data for your application",
+    "File upload fields cannot be auto-filled and require manual selection",
+    "Some fields may appear conditionally based on country or region",
+    "Use {timestamp} placeholder for dynamic generation",
+    "Use {random4} placeholder for unique 4-digit values",
+    "Use {random6} placeholder for unique 6-digit values",
+    "Test card numbers are publicly available test values"
+  ]
+}

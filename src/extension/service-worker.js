@@ -13,10 +13,18 @@ import { addPermissionToggle } from './lib/bundled-npm-deps.js';
 // Add 'Enable Testofill... on this domain' to the extension's ctx menu
 addPermissionToggle();
 
+//---------------------------------------------------------------- workflow state
+let activeWorkflow = null; // { name: string, steps: string[], currentStepIndex: number, tabId: number }
+
 //---------------------------------------------------------------- reusable: ruleSets, content, storage
 /* Get the rules and try to apply them to this page, if matched */
 async function findMatchingRules(currentUrl, ruleSetsCallback, _callIfNone) {
   rs.findMatchingRules(currentUrl).then(ruleSetsCallback);
+}
+
+// Helper to get full rules (for workflows)
+async function getFullRules() {
+  return rs.getFullRules();
 }
 
 let postponedMsg = null;
@@ -70,11 +78,25 @@ function ctxMenuFillFormHandler(tab) {
 }
 
 function ctxMenuSaveFormHandler(tab) {
-  sendMessageToContentScript(tab, "save_form", { tabUrl: tab.url }, forms => mergeIntoOptions(tab, forms));
+  sendMessageToContentScript(tab, "save_form", { tabUrl: tab.url }); // No callback, expecting save_form_captured message
 }
 
-/** Merge the given map with the options.forms map. */
+// Mutex to prevent race conditions when multiple frames save forms simultaneously
+let saveMutex = Promise.resolve();
+function withSaveMutex(action) {
+  const result = saveMutex.then(action);
+  saveMutex = result.catch(() => { });
+  return result;
+}
+
+/** Merge the given map with the options.forms map. Safe for concurrency. */
 function mergeIntoOptions(tab, forms) {
+  withSaveMutex(() => new Promise((resolve, reject) => {
+    mergeIntoOptionsInternal(tab, forms, resolve);
+  }));
+}
+
+function mergeIntoOptionsInternal(tab, forms, doneCallback) {
   const url = tab.url;
   if (!forms) {
     sendMessageToContentScript(tab, 'extracted_forms_save_failed',
@@ -104,7 +126,10 @@ function mergeIntoOptions(tab, forms) {
     const existingUrlForms = rules.forms[url];
     rules.forms[url] = existingUrlForms.concat(forms);
 
+
+
     saveRulesToStorage(rules, function (error) {
+      if (doneCallback) doneCallback(); // Release mutex logic
       if (typeof error === 'undefined') {
         sendMessageToContentScript(tab, 'extracted_forms_saved', { url: url, count: forms.length });
       } else {
@@ -154,6 +179,11 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
   chrome.action.setBadgeBackgroundColor({ tabId: tabId, color: '#808080' });
   chrome.action.setPopup({ tabId: tabId, popup: 'no-rulesets.html?url=' + encodeURI(url) });
 
+  // WORKFLOW HANDLING
+  if (activeWorkflow && activeWorkflow.tabId === tabId) {
+    processWorkflowStep(tabId, url);
+  }
+
   findMatchingRules(url, function (ruleSets) {
     setBadgeAndIconAction(tabId, ruleSets);
     triggerAutofillingIfEnabled(tab, ruleSets);
@@ -163,6 +193,76 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
   // - Also triggered for new tab, url=chrome://newtab/
   // - Also triggered when navigating to an anchor on the same page or back
 });
+
+//---------------------------------------------------------------- workflow logic
+
+async function startWorkflow(tab, workflowName) {
+  const rules = await getFullRules();
+  const workflowDef = rules.workflows ? rules.workflows[workflowName] : null;
+
+  if (!workflowDef) {
+    console.error(`Workflow ${workflowName} not found`);
+    return;
+  }
+
+  activeWorkflow = {
+    name: workflowName,
+    steps: workflowDef.steps, // Array of form names
+    currentStepIndex: 0,
+    tabId: tab.id,
+    delayBetweenSteps: workflowDef.delayBetweenSteps || 1000,
+    autoSubmit: workflowDef.autoSubmit || false
+  };
+
+  console.log(`Starting workflow: ${workflowName} for tab ${tab.id}`);
+  processWorkflowStep(tab.id, tab.url);
+}
+
+async function processWorkflowStep(tabId, currentUrl) {
+  if (!activeWorkflow) return;
+
+  const currentStepFormName = activeWorkflow.steps[activeWorkflow.currentStepIndex];
+
+  // We need to find the rule definition AND the context (auto-detected country)
+  // `findMatchingRules` does the heavy lifting of regex matching and context injection.
+  // We can use it to find the *specific* form we are looking for.
+  rs.findMatchingRules(currentUrl).then(matches => {
+    const match = matches.find(m => m.name === currentStepFormName);
+
+    if (match) {
+      console.log(`Workflow match! Step ${activeWorkflow.currentStepIndex}: ${currentStepFormName}`);
+
+      // Inject workflow context (autoSubmit)
+      const ruleSet = {
+        ...match,
+        autoSubmit: activeWorkflow.autoSubmit
+      };
+
+      // Wait for the configured delay before acting
+      setTimeout(() => {
+        // Send message to fill form
+        chrome.tabs.sendMessage(tabId, { id: "fill_form", payload: ruleSet })
+          .catch(err => {
+            console.log("Error sending workflow fill_form", err);
+          });
+
+        // Advance step
+        activeWorkflow.currentStepIndex++;
+        if (activeWorkflow.currentStepIndex >= activeWorkflow.steps.length) {
+          console.log("Workflow complete");
+          activeWorkflow = null;
+        }
+      }, activeWorkflow.delayBetweenSteps);
+
+    } else {
+      // Form name mismatch or URL mismatch
+      // If the URL matches the PATTERN but the name is different, that's fine, we just wait.
+      // But we actually need to know if we are 'waiting' or 'failed'.
+      // For now, simplicity: if findMatchingRules returns nothing for this form name, we assume we haven't reached the page yet.
+      console.log(`Workflow waiting: Form ${currentStepFormName} not found on ${currentUrl}`);
+    }
+  });
+}
 
 /* Only triggered if there is 0-1 ruleSets (i.e. of there is no popup win). */
 chrome.action.onClicked.addListener(async (tab) => {
@@ -228,6 +328,10 @@ function handleMessage({ id, payload }, sender, sendResponseFn) {
         128: `autofill_128x128-${payload.mode}.png`
       },
     });
+  } else if (id === 'start_workflow') {
+    startWorkflow(sender.tab || payload.tab, payload.workflowName); // handled from popup (no sender.tab?) or content
+  } else if (id === 'save_form_captured') {
+    mergeIntoOptions(sender.tab, payload.forms);
   } else {
     console.warn("Unsupported message id received: " + id, message);
   }
