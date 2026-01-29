@@ -1,8 +1,170 @@
 /**
  * The Content Script injected into the browser document and
  * invoked by messages from the extension (via event.js).
- * @type {String}
  */
+
+const FLOATING_UI_CSS = `
+  #testofill-floating-ui {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 280px;
+    background: #ffffff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 2147483647;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  #testofill-floating-ui.minimized {
+    width: 48px;
+    height: 48px;
+    border-radius: 24px;
+    cursor: pointer;
+  }
+  #testofill-floating-ui .header {
+    background: #007bff;
+    color: #fff;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: move;
+  }
+  #testofill-floating-ui.minimized .header, #testofill-floating-ui.minimized .form-list {
+    display: none;
+  }
+  #testofill-floating-ui .header button {
+    background: transparent;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0 4px;
+  }
+  #testofill-floating-ui .form-list {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 8px;
+  }
+  #testofill-floating-ui .form-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    padding: 10px;
+    margin-bottom: 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #333;
+    transition: background 0.2s;
+  }
+  #testofill-floating-ui .form-item:hover {
+    background: #e2e6ea;
+  }
+  #testofill-floating-ui .mini-icon {
+    display: none;
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+  }
+  #testofill-floating-ui.minimized .mini-icon {
+    display: flex;
+    background: #007bff;
+    color: white;
+    border-radius: 24px;
+  }
+`;
+
+// Helper for local matching within content script
+async function matchRulesLocally(currentUrl) {
+  const data = await chrome.storage.local.get('testofill.rules');
+  const rules = data['testofill.rules'] || {};
+  if (!rules.forms) return [];
+
+  let matches = [];
+  const environments = rules.environments || {};
+  let country = null;
+
+  for (const envGroup in environments) {
+    const envs = environments[envGroup];
+    for (const code in envs) {
+      if (currentUrl.startsWith(envs[code])) {
+        country = code.toUpperCase();
+        break;
+      }
+    }
+    if (country) break;
+  }
+
+  for (const formName in rules.forms) {
+    const formDef = rules.forms[formName];
+    if (Array.isArray(formDef)) {
+      if (currentUrl.match(new RegExp(formName))) {
+        matches = matches.concat(formDef.map(f => ({ ...f, name: f.name || formName, context: { country } })));
+      }
+    } else if (formDef.urlPattern) {
+      if (currentUrl.match(new RegExp(formDef.urlPattern))) {
+        matches.push({ ...formDef, name: formName, context: { country } });
+      }
+    }
+  }
+  return matches;
+}
+
+function createFloatingUI(matches) {
+  if (document.getElementById('testofill-floating-ui')) return;
+
+  const styleSheet = document.createElement("style");
+  styleSheet.innerText = FLOATING_UI_CSS;
+  document.head.appendChild(styleSheet);
+
+  const container = document.createElement('div');
+  container.id = 'testofill-floating-ui';
+
+  const header = document.createElement('div');
+  header.className = 'header';
+  header.innerHTML = `<span>AutoFormFiller</span><button id="testofill-min-btn">&minus;</button>`;
+
+  const miniIcon = document.createElement('div');
+  miniIcon.className = 'mini-icon';
+  miniIcon.innerText = '✎';
+
+  const list = document.createElement('div');
+  list.className = 'form-list';
+
+  matches.forEach(ruleSet => {
+    const btn = document.createElement('button');
+    btn.className = 'form-item';
+    btn.innerText = ruleSet.name;
+    btn.onclick = () => fillForms(ruleSet);
+    list.appendChild(btn);
+  });
+
+  container.appendChild(header);
+  container.appendChild(miniIcon);
+  container.appendChild(list);
+  document.body.appendChild(container);
+
+  const minBtn = container.querySelector('#testofill-min-btn');
+  const toggleMin = (e) => {
+    e.stopPropagation();
+    container.classList.toggle('minimized');
+  };
+
+  minBtn.onclick = toggleMin;
+  miniIcon.onclick = toggleMin;
+}
+
 
 //---------------------------------------------------------------------- FILL FORM
 /* Apply the selected rule set to the current page, filling its form(s).
@@ -400,4 +562,13 @@ if (!chrome.runtime.onMessage.hasListeners()) {
   chrome.runtime.onMessage.addListener(handleMessage);
   chrome.runtime.sendMessage({ id: 'content_script_loaded' });
   onColorSchemeChange(mql);
+
+  // Initialize Floating UI only in Top Frame
+  if (window.top === window.self) {
+    matchRulesLocally(document.location.toString()).then(matches => {
+      if (matches && matches.length > 0) {
+        createFloatingUI(matches);
+      }
+    });
+  }
 }
