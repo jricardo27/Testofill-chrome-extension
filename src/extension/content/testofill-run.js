@@ -17,7 +17,8 @@ function sleep(ms) {
 
 async function waitForElement(selector, timeout = 5000) {
   const startTime = Date.now();
-  while (document.querySelector(selector) === null) {
+  // Using Sizzle to support :contains() and other advanced selectors
+  while (Sizzle(selector).length === 0) {
     if (Date.now() - startTime > timeout) {
       console.warn(`Testofill: Timeout waiting for selector: ${selector}`);
       return false;
@@ -27,7 +28,7 @@ async function waitForElement(selector, timeout = 5000) {
   return true;
 }
 
-function processPlaceholders(value) {
+async function processPlaceholders(value) {
   if (typeof value !== 'string') return value;
 
   const now = new Date();
@@ -41,6 +42,50 @@ function processPlaceholders(value) {
   // {random6}
   value = value.replace(/{random6}/g, () => Math.floor(100000 + Math.random() * 900000));
 
+  // {phoneUS} - Special generator: +1500yxxxxxx where y ≠ 2
+  if (value.includes('{phoneUS}')) {
+    const y = "013456789"[Math.floor(Math.random() * 9)];
+    const rest = Math.random().toString().slice(2, 8); // 6 random digits
+    const phone = `+1500${y}${rest}`;
+    await chrome.storage.local.set({ 'testofill.lastPhoneUS': phone });
+    value = value.replace(/{phoneUS}/g, phone);
+  }
+
+  // {phoneUSLocal} - Special generator: 500yxxxxxx where y ≠ 2
+  if (value.includes('{phoneUSLocal}')) {
+    const y = "013456789"[Math.floor(Math.random() * 9)];
+    const rest = Math.random().toString().slice(2, 8); // 6 random digits
+    const phone = `500${y}${rest}`;
+    await chrome.storage.local.set({ 'testofill.lastPhoneUS': phone });
+    value = value.replace(/{phoneUSLocal}/g, phone);
+  }
+
+  // {lastPhoneUS6} - Retrieve last 6 digits of the last generated US phone
+  if (value.includes('{lastPhoneUS6}')) {
+    const data = await chrome.storage.local.get('testofill.lastPhoneUS');
+    const lastPhone = data['testofill.lastPhoneUS'] || "";
+    const last6 = lastPhone.slice(-6);
+    value = value.replace(/{lastPhoneUS6}/g, last6);
+  }
+
+  // {lastPhoneUSDigit:N} - Get the N-th digit (0-5) of the last 6 digits
+  if (value.includes('{lastPhoneUSDigit:')) {
+    const data = await chrome.storage.local.get('testofill.lastPhoneUS');
+    const lastPhone = data['testofill.lastPhoneUS'] || "";
+    const last6 = lastPhone.slice(-6);
+    value = value.replace(/{lastPhoneUSDigit:(\d)}/g, (match, digit) => {
+      const idx = parseInt(digit, 10);
+      return last6[idx] || "";
+    });
+  }
+
+  // Random names using Chance.js (if available)
+  if (typeof chance !== 'undefined') {
+    value = value.replace(/{firstName}/g, () => chance.first());
+    value = value.replace(/{lastName}/g, () => chance.last());
+    value = value.replace(/{fullName}/g, () => chance.name());
+  }
+
   return value;
 }
 
@@ -51,9 +96,16 @@ function processPlaceholders(value) {
 async function fillForms(ruleSet) {
   if (typeof ruleSet === 'undefined') return;
 
-  const { options } = await chrome.storage.local.get('testofill.rules');
-  const globalOptions = (options && options.options) || {}; // Structure is rules.options
+  const data = await chrome.storage.local.get('testofill.rules');
+  const rules = data['testofill.rules'] || {};
+  const globalOptions = rules.options || {}; // global options are at rules.options
   const context = ruleSet.context || {}; // e.g. { country: 'US' }
+
+  // 0. RequiredSelector (Discrimination)
+  if (ruleSet.requiredSelector && Sizzle(ruleSet.requiredSelector).length === 0) {
+    console.log(`Testofill: Aborting, required selector '${ruleSet.requiredSelector}' not found.`);
+    return;
+  }
 
   // 1. WaitForSelector
   if (ruleSet.waitForSelector) {
@@ -83,7 +135,7 @@ async function fillForms(ruleSet) {
     if (fieldElms.length === 0) {
       unmatchedSelectors.push(field);
     } else {
-      fieldElms.forEach(function (inputElm) {
+      for (const inputElm of fieldElms) {
         // Global Option: Scroll to Field
         if (globalOptions.scrollToField) {
           inputElm.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -101,8 +153,8 @@ async function fillForms(ruleSet) {
           }, 1000); // Highlight for 1s
         }
 
-        fillField(inputElm, field);
-      });
+        await fillField(inputElm, field);
+      }
     }
   }
 
@@ -115,14 +167,14 @@ async function fillForms(ruleSet) {
 }
 
 /* Apply rule to a field to fill it (exec. for each matching field, e.g. radio). */
-function fillField(fieldElm, fieldRule) {
+async function fillField(fieldElm, fieldRule) {
   // Support generative (legacy)
   if (!_.isUndefined(fieldRule.generate)) {
-    fieldRule.value = parseTopGenExpr(fieldRule.generate);
+    fieldRule.value = await parseTopGenExpr(fieldRule.generate); // Note: generative might need to be async too if it uses storage, but for now we keep it simple
   }
 
   // 3. Process Placeholders
-  let valueToFill = processPlaceholders(fieldRule.value);
+  let valueToFill = await processPlaceholders(fieldRule.value);
 
   if (fieldElm.type === 'checkbox') {
     // boolean check
