@@ -87,9 +87,13 @@ const FLOATING_UI_CSS = `
 
 // Helper for local matching within content script
 async function matchRulesLocally(currentUrl) {
+  console.log("Testofill: Checking for matches against URL:", currentUrl);
   const data = await chrome.storage.local.get('testofill.rules');
   const rules = data['testofill.rules'] || {};
-  if (!rules.forms) return [];
+  if (!rules.forms) {
+    console.log("Testofill: No rules.forms found in storage.");
+    return [];
+  }
 
   let matches = [];
   const environments = rules.environments || {};
@@ -105,19 +109,36 @@ async function matchRulesLocally(currentUrl) {
     }
     if (country) break;
   }
+  console.log("Testofill: Detected country context:", country);
 
   for (const formName in rules.forms) {
     const formDef = rules.forms[formName];
+
     if (Array.isArray(formDef)) {
-      if (currentUrl.match(new RegExp(formName))) {
-        matches = matches.concat(formDef.map(f => ({ ...f, name: f.name || formName, context: { country } })));
+      // Key is a URL pattern, value is array of rules
+      try {
+        const regex = new RegExp(formName);
+        const isMatch = !!currentUrl.match(regex);
+        if (isMatch) {
+          matches = matches.concat(formDef.map(f => ({ ...f, name: f.name || formName, context: { country } })));
+        }
+      } catch (e) {
+        console.warn("Testofill: Error matching form key as regex:", formName);
       }
     } else if (formDef.urlPattern) {
-      if (currentUrl.match(new RegExp(formDef.urlPattern))) {
-        matches.push({ ...formDef, name: formName, context: { country } });
+      // Key is name, value is object with urlPattern
+      try {
+        const regex = new RegExp(formDef.urlPattern);
+        const isMatch = !!currentUrl.match(regex);
+        if (isMatch) {
+          matches.push({ ...formDef, name: formName, context: { country } });
+        }
+      } catch (e) {
+        console.error(`Testofill: Invalid urlPattern regex for form '${formName}':`, formDef.urlPattern);
       }
     }
   }
+  console.log(`Testofill: Found ${matches.length} matching ruleSet(s) for this page.`);
   return matches;
 }
 
@@ -175,6 +196,65 @@ function createFloatingUI(matches) {
 //---------------------------------------------------------------------- HELPERS
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/** Robustly set input value and trigger events for modern frameworks (React, etc.) */
+function setInputValue(elm, value) {
+  if (!elm) return;
+  console.log(`Testofill: Filling '${elm.name || elm.id}' with '${value}'`, elm);
+
+  const isReadOnly = elm.readOnly || elm.hasAttribute('readonly');
+  if (isReadOnly) {
+    elm.readOnly = false;
+    elm.removeAttribute('readonly');
+  }
+
+  // React-specific: Bypassing the value setter tracking
+  const proto = Object.getPrototypeOf(elm);
+  const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set ||
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set ||
+    Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set ||
+    Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, "value")?.set;
+
+  // React 16+ value tracking hack
+  const tracker = elm._valueTracker;
+  if (tracker) tracker.setValue(""); // Reset tracker to force change detection
+
+  elm.dispatchEvent(new Event('focus', { bubbles: true }));
+
+  if (nativeSetter && nativeSetter !== Object.getOwnPropertyDescriptor(elm, "value")?.set) {
+    nativeSetter.call(elm, value);
+  } else {
+    elm.value = value;
+  }
+
+  if (tracker) tracker.setValue(value);
+
+  // Dispatch events to wake up listeners
+  elm.dispatchEvent(new Event('input', { bubbles: true }));
+  elm.dispatchEvent(new Event('change', { bubbles: true }));
+
+  // Simulate synthetic input event for frameworks checking event properties
+  elm.dispatchEvent(new InputEvent('input', {
+    bubbles: true,
+    composed: true,
+    data: value,
+    inputType: 'insertText'
+  }));
+
+  // Simulate "Enter" to commit the value just in case
+  elm.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  elm.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }));
+
+  // Restore state after a delay to allow framework processing or re-renders
+  setTimeout(() => {
+    console.log(`Testofill: Post-fill check for '${elm.id || elm.name}': value is "${elm.value}"`);
+    if (isReadOnly) {
+      elm.readOnly = true;
+      elm.setAttribute('readonly', '');
+    }
+    elm.dispatchEvent(new Event('blur', { bubbles: true }));
+  }, 200);
 }
 
 async function waitForElement(selector, timeout = 5000) {
@@ -355,10 +435,7 @@ async function fillField(fieldElm, fieldRule) {
     fieldElm.click(); // Some browsers allow opening dialog, most block it. Worth a try or just focus.
   } else if (fieldElm.type === 'select-one') {
     // assertFieldType(fieldElm.type, fieldRule, 'string'); // Relaxed type check for placeholders
-    if (fieldElm.value === valueToFill) return;
-    fieldElm.dispatchEvent(new Event('focus', { bubbles: true }));
-    fieldElm.value = valueToFill;
-    fieldElm.dispatchEvent(new Event('change', { 'view': window, 'bubbles': true }));
+    setInputValue(fieldElm, valueToFill);
   } else if (fieldElm.type === 'select-multiple') {
     fieldElm.dispatchEvent(new Event('focus', { bubbles: true }));
     const value = (valueToFill === null) ? [] : valueToFill;
@@ -396,9 +473,7 @@ async function fillField(fieldElm, fieldRule) {
     fieldElm.textContent = fieldRule.textContent;
     fieldElm.dispatchEvent(new Event('input', { bubbles: true }));
   } else { // Typically a text <input>
-    fieldElm.dispatchEvent(new Event('focus', { bubbles: true }));
-    fieldElm.value = valueToFill;
-    fieldElm.dispatchEvent(new Event('input', { bubbles: true }));
+    setInputValue(fieldElm, valueToFill);
   }
 }
 
@@ -562,13 +637,13 @@ if (!chrome.runtime.onMessage.hasListeners()) {
   chrome.runtime.onMessage.addListener(handleMessage);
   chrome.runtime.sendMessage({ id: 'content_script_loaded' });
   onColorSchemeChange(mql);
+}
 
-  // Initialize Floating UI only in Top Frame
-  if (window.top === window.self) {
-    matchRulesLocally(document.location.toString()).then(matches => {
-      if (matches && matches.length > 0) {
-        createFloatingUI(matches);
-      }
-    });
-  }
+// Initialize Floating UI only in Top Frame
+if (window.top === window.self) {
+  matchRulesLocally(document.location.toString()).then(matches => {
+    if (matches && matches.length > 0) {
+      createFloatingUI(matches);
+    }
+  }).catch(e => console.error("Testofill: Failed to init floating UI", e));
 }
