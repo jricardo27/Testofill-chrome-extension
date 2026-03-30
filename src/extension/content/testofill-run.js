@@ -24,28 +24,8 @@ const FLOATING_UI_CSS = `
     border-radius: 24px;
     cursor: pointer;
   }
-  #testofill-floating-ui .header {
-    background: #007bff;
-    color: #fff;
-    padding: 8px 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 14px;
-    font-weight: bold;
-    cursor: move;
-  }
-  #testofill-floating-ui.minimized .header, #testofill-floating-ui.minimized .form-list {
+  #testofill-floating-ui.minimized .form-list, #testofill-floating-ui.minimized .footer {
     display: none;
-  }
-  #testofill-floating-ui .header button {
-    background: transparent;
-    border: none;
-    color: #fff;
-    cursor: pointer;
-    font-size: 18px;
-    line-height: 1;
-    padding: 0 4px;
   }
   #testofill-floating-ui .form-list {
     max-height: 300px;
@@ -83,7 +63,91 @@ const FLOATING_UI_CSS = `
     color: white;
     border-radius: 24px;
   }
+  #testofill-floating-ui .close-mini {
+    display: none;
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: #dc3545;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 14px;
+    line-height: 16px;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  #testofill-floating-ui.minimized .close-mini {
+    display: block;
+  }
+  #testofill-floating-ui .footer {
+    border-top: 1px solid #eee;
+    padding: 8px;
+    background: #fdfdfd;
+  }
+  .testofill-live-test-panel {
+    position: fixed;
+    bottom: 20px;
+    right: 310px;
+    width: 350px;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 2147483647;
+    font-family: inherit;
+    padding: 12px;
+  }
+  .testofill-keyword-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    padding: 2px 0;
+    border-bottom: 1px dashed #eee;
+  }
+  .testofill-keyword-row b { color: #0056b3; }
+  .testofill-test-form {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+  }
+  .testofill-test-form input {
+    width: 100%;
+    margin-bottom: 5px;
+    padding: 4px;
+    font-size: 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  .testofill-btn-primary {
+    background: #28a745;
+    color: #fff;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+    font-weight: bold;
+    margin-top: 5px;
+  }
 `;
+
+/** Returns a preview of what placeholders resolve to right now */
+async function getKeywordPreview() {
+  const keys = [
+    '{timestamp}', '{firstName}', '{lastName}', '{fullName}',
+    '{random4}', '{random6}', '{phoneUS}', '{phoneUSLocal}',
+    '{lastPhoneUS6}', '{lastPhoneUSDigit:0}'
+  ];
+  const results = {};
+  for (const k of keys) {
+    results[k] = await processPlaceholders(k);
+  }
+  return results;
+}
+
 
 // Helper for local matching within content script
 async function matchRulesLocally(currentUrl) {
@@ -120,6 +184,9 @@ async function matchRulesLocally(currentUrl) {
         const regex = new RegExp(formName);
         const isMatch = !!currentUrl.match(regex);
         if (isMatch) {
+          // For old schema, rules are in an array; they don't usually have requiredSelector per item
+          // but we'll check if one exists in the first item or similar if needed.
+          // However, old schema doesn't really support requiredSelector.
           matches = matches.concat(formDef.map(f => ({ ...f, name: f.name || formName, context: { country } })));
         }
       } catch (e) {
@@ -131,6 +198,11 @@ async function matchRulesLocally(currentUrl) {
         const regex = new RegExp(formDef.urlPattern);
         const isMatch = !!currentUrl.match(regex);
         if (isMatch) {
+          // CHECK REQUIRED SELECTOR
+          if (formDef.requiredSelector && Sizzle(formDef.requiredSelector).length === 0) {
+            console.log(`Testofill: RuleSet '${formName}' skipped - requiredSelector '${formDef.requiredSelector}' not found.`);
+            continue;
+          }
           matches.push({ ...formDef, name: formName, context: { country } });
         }
       } catch (e) {
@@ -143,48 +215,160 @@ async function matchRulesLocally(currentUrl) {
 }
 
 function createFloatingUI(matches) {
-  if (document.getElementById('testofill-floating-ui')) return;
+  let container = document.getElementById('testofill-floating-ui');
 
-  const styleSheet = document.createElement("style");
-  styleSheet.innerText = FLOATING_UI_CSS;
-  document.head.appendChild(styleSheet);
+  if (!container) {
+    const styleSheet = document.createElement("style");
+    styleSheet.innerText = FLOATING_UI_CSS;
+    document.head.appendChild(styleSheet);
 
-  const container = document.createElement('div');
-  container.id = 'testofill-floating-ui';
+    container = document.createElement('div');
+    container.id = 'testofill-floating-ui';
 
-  const header = document.createElement('div');
-  header.className = 'header';
-  header.innerHTML = `<span>AutoFormFiller</span><button id="testofill-min-btn">&minus;</button>`;
+    // Initial header/mini-icon
+    container.innerHTML = `
+      <div class="mini-icon">✎</div>
+      <div class="close-mini" id="testofill-close-mini" title="Hide Icon">&times;</div>
+      <div class="form-list" style="margin-top: 5px;"></div>
+      <div class="footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <button id="testofill-live-btn" class="form-item" style="margin:0; text-align:center; background:#e9ecef; flex-grow: 1;">🧪 Live Test / Keywords</button>
+        <div style="margin-left: 10px; display: flex; gap: 8px;">
+          <button id="testofill-min-btn" title="Minimize" style="background:#007bff; color:white; border:none; border-radius:4px; padding:2px 6px; cursor:pointer;">&minus;</button>
+          <button id="testofill-close-btn" title="Hide Popup" style="background:#dc3545; color:white; border:none; border-radius:4px; padding:2px 6px; cursor:pointer;">&times;</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(container);
 
-  const miniIcon = document.createElement('div');
-  miniIcon.className = 'mini-icon';
-  miniIcon.innerText = '✎';
+    const minBtn = container.querySelector('#testofill-min-btn');
+    const miniIcon = container.querySelector('.mini-icon');
+    const toggleMin = (e) => {
+      e.stopPropagation();
+      container.classList.toggle('minimized');
+      const panel = document.querySelector('.testofill-live-test-panel');
+      if (panel) panel.style.display = container.classList.contains('minimized') ? 'none' : 'block';
+    };
+    minBtn.onclick = toggleMin;
+    miniIcon.onclick = toggleMin;
+    
+    container.querySelector('#testofill-close-btn').onclick = (e) => {
+      e.stopPropagation();
+      chrome.storage.local.set({ 'testofill.floatingIconEnabled': false });
+    };
+    container.querySelector('#testofill-close-mini').onclick = (e) => {
+      e.stopPropagation();
+      chrome.storage.local.set({ 'testofill.floatingIconEnabled': false });
+    };
+    container.querySelector('#testofill-live-btn').onclick = () => createLiveTestUI();
+  }
 
-  const list = document.createElement('div');
-  list.className = 'form-list';
+  const list = container.querySelector('.form-list');
+  list.innerHTML = ''; // Clear for update
 
   matches.forEach(ruleSet => {
     const btn = document.createElement('button');
     btn.className = 'form-item';
     btn.innerText = ruleSet.name;
-    btn.onclick = () => fillForms(ruleSet);
+    btn.onclick = (e) => { e.stopPropagation(); fillForms(ruleSet); };
     list.appendChild(btn);
   });
-
-  container.appendChild(header);
-  container.appendChild(miniIcon);
-  container.appendChild(list);
-  document.body.appendChild(container);
-
-  const minBtn = container.querySelector('#testofill-min-btn');
-  const toggleMin = (e) => {
-    e.stopPropagation();
-    container.classList.toggle('minimized');
-  };
-
-  minBtn.onclick = toggleMin;
-  miniIcon.onclick = toggleMin;
 }
+
+// Global state to avoid flicker
+let lastMatchesHash = "";
+function updateAvailableForms() {
+  chrome.storage.local.get(['testofill.floatingIconEnabled']).then((settings) => {
+    const isEnabled = settings['testofill.floatingIconEnabled'] !== false; // Default true
+    if (!isEnabled) {
+      const existing = document.getElementById('testofill-floating-ui');
+      if (existing) existing.remove();
+      lastMatchesHash = ""; // Reset so it recreates if re-enabled
+      return;
+    }
+
+    matchRulesLocally(document.location.toString()).then(matches => {
+      const hash = JSON.stringify(matches.map(m => m.name));
+      if (hash === lastMatchesHash) return;
+      lastMatchesHash = hash;
+
+      if (matches.length > 0) {
+        createFloatingUI(matches);
+      } else {
+        const existing = document.getElementById('testofill-floating-ui');
+        if (existing) existing.remove();
+      }
+    });
+  });
+}
+
+const debouncedUpdate = _.debounce(updateAvailableForms, 500);
+const observer = new MutationObserver((mutations) => {
+  // Only update if significant changes or inputs added
+  const shouldUpdate = mutations.some(m =>
+    m.addedNodes.length > 0 || m.type === 'attributes'
+  );
+  if (shouldUpdate) debouncedUpdate();
+});
+
+
+async function createLiveTestUI() {
+  let panel = document.querySelector('.testofill-live-test-panel');
+  if (panel) {
+    panel.remove();
+    return;
+  }
+
+  panel = document.createElement('div');
+  panel.className = 'testofill-live-test-panel';
+  panel.innerHTML = `
+    <div style="font-weight:bold; border-bottom: 2px solid #eee; padding-bottom: 4px; margin-bottom: 8px; display: flex; justify-content: space-between;">
+      <span>🧪 Live Evaluator & Keywords</span>
+      <button id="testofill-close-live" style="border:none; background:none; cursor:pointer;">&times;</button>
+    </div>
+    <div id="testofill-keywords-list" style="max-height: 150px; overflow-y: auto; margin-bottom: 10px;">
+      Loading keywords...
+    </div>
+    <div class="testofill-test-form">
+      <div style="font-size: 11px; color: #666; margin-bottom: 4px;">Test a selector:</div>
+      <input id="testofill-live-selector" type="text" placeholder="CSS Selector (e.g. #first_name)">
+      <input id="testofill-live-value" type="text" placeholder="Value (e.g. {firstName})">
+      <button class="testofill-btn-primary" id="testofill-run-test">Run One-Off Test</button>
+    </div>
+  `;
+
+  document.body.appendChild(panel);
+
+  const keyList = panel.querySelector('#testofill-keywords-list');
+  const preview = await getKeywordPreview();
+  keyList.innerHTML = Object.entries(preview).map(([k, v]) => `
+    <div class="testofill-keyword-row"><b>${k}</b> <span>${v}</span></div>
+  `).join('');
+
+  panel.querySelector('#testofill-close-live').onclick = () => panel.remove();
+
+  panel.querySelector('#testofill-run-test').onclick = async () => {
+    const selector = panel.querySelector('#testofill-live-selector').value;
+    const val = panel.querySelector('#testofill-live-value').value;
+    if (!selector) { alert("Please enter a selector"); return; }
+
+    const elements = Sizzle(selector);
+    if (elements.length === 0) {
+      alert(`No elements found for: ${selector}`);
+      return;
+    }
+
+    const mockRule = { selector, value: val };
+    for (const el of elements) {
+      // Highlight briefly
+      const oldBorder = el.style.border;
+      el.style.border = '3px solid #28a745';
+      setTimeout(() => el.style.border = oldBorder, 1000);
+
+      await fillField(el, mockRule);
+    }
+  };
+}
+
 
 
 //---------------------------------------------------------------------- FILL FORM
@@ -600,6 +784,11 @@ function handleMessage(message, sender, sendResponseFn) {
   if (message.id === "fill_form") {
     var ruleSet = payload;
     fillForms(ruleSet);
+  } else if (message.id === "get_filtered_rules") {
+    matchRulesLocally(document.location.toString()).then(sendResponseFn);
+    return true; // Keep channel open for async response
+  } else if (message.id === "toggle_live_test") {
+    createLiveTestUI();
   } else if (message.id === "save_form") {
     const { tabUrl } = payload;
     const extractedForms = makeTestofillJsonFromPageForms(tabUrl);
@@ -641,9 +830,18 @@ if (!chrome.runtime.onMessage.hasListeners()) {
 
 // Initialize Floating UI only in Top Frame
 if (window.top === window.self) {
-  matchRulesLocally(document.location.toString()).then(matches => {
-    if (matches && matches.length > 0) {
-      createFloatingUI(matches);
+  updateAvailableForms();
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['id', 'class', 'name', 'readonly']
+  });
+
+  chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (namespace === 'local' && changes['testofill.floatingIconEnabled'] !== undefined) {
+      lastMatchesHash = ""; // force update
+      debouncedUpdate();
     }
-  }).catch(e => console.error("Testofill: Failed to init floating UI", e));
+  });
 }

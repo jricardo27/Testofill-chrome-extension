@@ -9,7 +9,7 @@ function renderForTab(tab) {
     renderWorkflows(rules);
 
     // 2. Find matching Forms
-    findMatchingRules(tab.url, function (ruleSets) {
+    findMatchingRules(tab, function (ruleSets) {
       renderRuleSetSelection(ruleSets);
       document.querySelector('#ruleSetList').addEventListener('change', function (evt) {
         handleRuleSetSelected(evt, tab, ruleSets);
@@ -17,14 +17,40 @@ function renderForTab(tab) {
     });
 
     // Event Listeners
+    const toggleIconCB = document.getElementById('toggleFloatingIcon');
+    chrome.storage.local.get(['testofill.floatingIconEnabled'], (res) => {
+      toggleIconCB.checked = res['testofill.floatingIconEnabled'] !== false;
+    });
+    toggleIconCB.addEventListener('change', (e) => {
+      chrome.storage.local.set({ 'testofill.floatingIconEnabled': e.target.checked });
+    });
+
     document.getElementById('runWorkflow').addEventListener('click', () => handleRunWorkflow(tab));
+    document.getElementById('liveTest').addEventListener('click', () => {
+      integr.sendMessageToContentScript(tab, "toggle_live_test", {})
+        .then(() => window.close());
+    });
 
   });
 }
 
-/* Find defined ruleSets matching this URL */
-function findMatchingRules(currentUrl, ruleSetsCallback) {
-  rs.findMatchingRules(currentUrl).then(ruleSetsCallback);
+/* Find defined ruleSets matching this URL and context */
+function findMatchingRules(tab, ruleSetsCallback) {
+  // First, try to get filtered rules from the Content Script (which knows about the DOM)
+  integr.sendMessageToContentScript(tab, "get_filtered_rules", {})
+    .then(filteredMatches => {
+      if (filteredMatches && filteredMatches.length > 0) {
+        console.log("Popup: Using DOM-filtered matches from Content Script");
+        ruleSetsCallback(filteredMatches);
+      } else {
+        // Fallback to URL-only matching if CS says 0 (or is not yet ready)
+        rs.findMatchingRules(tab.url).then(ruleSetsCallback);
+      }
+    })
+    .catch(() => {
+      // Fallback if content script is missing/fails
+      rs.findMatchingRules(tab.url).then(ruleSetsCallback);
+    });
 }
 
 // -------------------------------------------------------------------------------- UI RENDERING

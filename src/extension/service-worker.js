@@ -56,8 +56,12 @@ async function ctxMenuHandler(info, tab) {
   }
   if (info.menuItemId === "fill_form") {
     ctxMenuFillFormHandler(tab);
-  } else { // save_form
+  } else if (info.menuItemId === "save_form") {
     ctxMenuSaveFormHandler(tab);
+  } else if (info.menuItemId === "toggle_floating_ui") {
+    chrome.storage.local.get(['testofill.floatingIconEnabled'], (res) => {
+      chrome.storage.local.set({ 'testofill.floatingIconEnabled': res['testofill.floatingIconEnabled'] === false });
+    });
   }
 }
 
@@ -290,6 +294,11 @@ chrome.runtime.onInstalled.addListener(function () {
     "title": "Save form(s)",
     "contexts": ["page", "frame", "editable"],
     "id": "save_form"
+  });
+  chrome.contextMenus.create({
+    "title": "Show/Hide Floating UI",
+    "contexts": ["page", "frame", "action"],
+    "id": "toggle_floating_ui"
   });
 });
 
