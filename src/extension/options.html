@@ -120,6 +120,19 @@
             <p>
                 <code>null</code> means select none / uncheck all.
             </p>
+            <h5>Placeholders</h5>
+            <p>The following placeholders can be used in <code>value</code> strings:</p>
+            <ul>
+                <li><code>{timestamp}</code> - Current time in milliseconds</li>
+                <li><code>{time}</code> - Current time as HHMMSS</li>
+                <li><code>{randomN}</code> - Any number of random digits (e.g., <code>{random2}</code>, <code>{random5}</code>, etc.)</li>
+                <li><code>{randomN-[exclusions]}</code> - N random digits excluding specified digits (e.g., <code>{random3-[1,5]}</code> to generate 3 digits excluding 1 and 5)</li>
+                <li><code>{firstName}</code>, <code>{lastName}</code>, <code>{fullName}</code> - Random names (requires Chance.js)</li>
+                <li><code>{streetName}</code>, <code>{streetType}</code> - Random street name and type</li>
+                <li><code>{postcodeAU}</code>, <code>{postcodeUS}</code> - Random AU (4 digits) or US (5 digits) postcode</li>
+                <li><code>{phoneUS}</code>, <code>{phoneUSLocal}</code> - Random US phone numbers</li>
+            </ul>
+
             <h5>Non-values</h5>
             <p>
                 You can also sometimes specify other attributes than <code>value</code> in a rule:

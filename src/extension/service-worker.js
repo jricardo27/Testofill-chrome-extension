@@ -9,6 +9,7 @@
 import * as rs from "./shared/rules-store.js";
 import * as integr from "./shared/integration.js";
 import { addPermissionToggle } from './lib/bundled-npm-deps.js';
+import { logger } from "./shared/logger.js";
 
 // Add 'Enable Testofill... on this domain' to the extension's ctx menu
 addPermissionToggle();
@@ -51,7 +52,7 @@ function saveRulesToStorage(rules, responseCallback) {
 
 async function ctxMenuHandler(info, tab) {
   if (!await integr.ensureDomainPermission(tab)) {
-    console.error("Aborting, permissions to access the current domain not granted");
+    logger.error("Aborting, permissions to access the current domain not granted");
     return;
   }
   if (info.menuItemId === "fill_form") {
@@ -110,7 +111,7 @@ function mergeIntoOptionsInternal(tab, forms, doneCallback) {
 
   chrome.storage.local.get('testofill.rules', function (items) {
     if (typeof chrome.runtime.lastError !== "undefined") {
-      console.error("Error loading rules from storage: " + chrome.runtime.lastError.message);
+      logger.error("Error loading rules from storage: " + chrome.runtime.lastError.message);
       return; // TODO report the error to the user via the popup?
     }
 
@@ -205,7 +206,7 @@ async function startWorkflow(tab, workflowName) {
   const workflowDef = rules.workflows ? rules.workflows[workflowName] : null;
 
   if (!workflowDef) {
-    console.error(`Workflow ${workflowName} not found`);
+    logger.error(`Workflow ${workflowName} not found`);
     return;
   }
 
@@ -218,7 +219,7 @@ async function startWorkflow(tab, workflowName) {
     autoSubmit: workflowDef.autoSubmit || false
   };
 
-  console.log(`Starting workflow: ${workflowName} for tab ${tab.id}`);
+  logger.log(`Starting workflow: ${workflowName} for tab ${tab.id}`);
   processWorkflowStep(tab.id, tab.url);
 }
 
@@ -234,7 +235,7 @@ async function processWorkflowStep(tabId, currentUrl) {
     const match = matches.find(m => m.name === currentStepFormName);
 
     if (match) {
-      console.log(`Workflow match! Step ${activeWorkflow.currentStepIndex}: ${currentStepFormName}`);
+      logger.log(`Workflow match! Step ${activeWorkflow.currentStepIndex}: ${currentStepFormName}`);
 
       // Inject workflow context (autoSubmit)
       const ruleSet = {
@@ -247,13 +248,13 @@ async function processWorkflowStep(tabId, currentUrl) {
         // Send message to fill form
         chrome.tabs.sendMessage(tabId, { id: "fill_form", payload: ruleSet })
           .catch(err => {
-            console.log("Error sending workflow fill_form", err);
+            logger.log("Error sending workflow fill_form", err);
           });
 
         // Advance step
         activeWorkflow.currentStepIndex++;
         if (activeWorkflow.currentStepIndex >= activeWorkflow.steps.length) {
-          console.log("Workflow complete");
+          logger.log("Workflow complete");
           activeWorkflow = null;
         }
       }, activeWorkflow.delayBetweenSteps);
@@ -263,7 +264,7 @@ async function processWorkflowStep(tabId, currentUrl) {
       // If the URL matches the PATTERN but the name is different, that's fine, we just wait.
       // But we actually need to know if we are 'waiting' or 'failed'.
       // For now, simplicity: if findMatchingRules returns nothing for this form name, we assume we haven't reached the page yet.
-      console.log(`Workflow waiting: Form ${currentStepFormName} not found on ${currentUrl}`);
+      logger.log(`Workflow waiting: Form ${currentStepFormName} not found on ${currentUrl}`);
     }
   });
 }
@@ -276,12 +277,21 @@ chrome.action.onClicked.addListener(async (tab) => {
     return rs.findMatchingRules(tab.url)
       .then((ruleSets) => sendMessageToContentScript(tab, "fill_form", ruleSets[0]));
   } else {
-    console.error("Aborting, permissions to access the current domain not granted");
+    logger.error("Aborting, permissions to access the current domain not granted");
     throw Error("Aborting, permissions to access the current domain not granted");
   }
 });
 
 chrome.contextMenus.onClicked.addListener(ctxMenuHandler);
+
+function updateContextMenuTitle(isEnabled) {
+  const title = isEnabled ? "Hide Floating UI" : "Show Floating UI";
+  chrome.contextMenus.update("toggle_floating_ui", { title: title }, () => {
+    if (chrome.runtime.lastError) {
+      // It might not exist yet if called too early, ignore
+    }
+  });
+}
 
 // Set up context menu tree at install time.
 chrome.runtime.onInstalled.addListener(function () {
@@ -296,9 +306,15 @@ chrome.runtime.onInstalled.addListener(function () {
     "id": "save_form"
   });
   chrome.contextMenus.create({
-    "title": "Show/Hide Floating UI",
+    "title": "Hide Floating UI", // Default to enabled title
     "contexts": ["page", "frame", "action"],
     "id": "toggle_floating_ui"
+  }, () => {
+    // Sync title immediately after creation
+    chrome.storage.local.get(['testofill.floatingIconEnabled'], (res) => {
+      const isEnabled = res['testofill.floatingIconEnabled'] !== false;
+      updateContextMenuTitle(isEnabled);
+    });
   });
 });
 
@@ -308,11 +324,15 @@ chrome.runtime.onInstalled.addListener(function () {
  * @param namespace {string} e.g. 'sync'
  */
 chrome.storage.onChanged.addListener(function (changes, namespace) {
-  for (var key in changes) {
-    if (key !== 'testofill.rules') return;
+  if (namespace !== 'local') return;
 
+  if (changes['testofill.rules']) {
     // TODO Notify Options page to reload? Update browser icon?
+  }
 
+  if (changes['testofill.floatingIconEnabled']) {
+    const isEnabled = changes['testofill.floatingIconEnabled'].newValue !== false;
+    updateContextMenuTitle(isEnabled);
   }
 });
 
@@ -325,7 +345,7 @@ function handleMessage({ id, payload }, sender, sendResponseFn) {
       if (tab.url === sender.tab.url) {
         sendMessageToContentScript(tab, messageId, payload, responseCallback);
       } else {
-        console.debug('handleMessage:content_script_loaded - ignoring postponed msg, for another tab',
+        logger.debug('handleMessage:content_script_loaded - ignoring postponed msg, for another tab',
           { postponed: tab2.url, current: tab.url }
         );
       }
@@ -342,7 +362,7 @@ function handleMessage({ id, payload }, sender, sendResponseFn) {
   } else if (id === 'save_form_captured') {
     mergeIntoOptions(sender.tab, payload.forms);
   } else {
-    console.warn("Unsupported message id received: " + id, message);
+    logger.warn("Unsupported message id received: " + id, message);
   }
 
   return false; // sendResponseFn is not async

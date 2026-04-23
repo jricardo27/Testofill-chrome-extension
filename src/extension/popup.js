@@ -34,13 +34,15 @@ function renderForTab(tab) {
   });
 }
 
+import { logger } from "./shared/logger.js";
+
 /* Find defined ruleSets matching this URL and context */
 function findMatchingRules(tab, ruleSetsCallback) {
   // First, try to get filtered rules from the Content Script (which knows about the DOM)
   integr.sendMessageToContentScript(tab, "get_filtered_rules", {})
     .then(filteredMatches => {
       if (filteredMatches && filteredMatches.length > 0) {
-        console.log("Popup: Using DOM-filtered matches from Content Script");
+        logger.log("Popup: Using DOM-filtered matches from Content Script");
         ruleSetsCallback(filteredMatches);
       } else {
         // Fallback to URL-only matching if CS says 0 (or is not yet ready)

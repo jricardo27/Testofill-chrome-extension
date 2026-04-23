@@ -137,8 +137,9 @@ const FLOATING_UI_CSS = `
 /** Returns a preview of what placeholders resolve to right now */
 async function getKeywordPreview() {
   const keys = [
-    '{timestamp}', '{firstName}', '{lastName}', '{fullName}',
-    '{random4}', '{random6}', '{phoneUS}', '{phoneUSLocal}',
+    '{timestamp}', '{time}', '{firstName}', '{lastName}', '{fullName}',
+    '{streetName}', '{streetType}', '{postcodeAU}', '{postcodeUS}',
+    '{random2}', '{random3-[1,5]}', '{random4}', '{random6}', '{phoneUS}', '{phoneUSLocal}',
     '{lastPhoneUS6}', '{lastPhoneUSDigit:0}'
   ];
   const results = {};
@@ -462,11 +463,25 @@ async function processPlaceholders(value) {
   // {timestamp}
   value = value.replace(/{timestamp}/g, now.getTime());
 
-  // {random4}
-  value = value.replace(/{random4}/g, () => Math.floor(1000 + Math.random() * 9000));
+  // {time} - HHMMSS
+  const timestamp = now.toTimeString().split(' ')[0].replace(/:/g, '');
+  value = value.split('{time}').join(timestamp);
 
-  // {random6}
-  value = value.replace(/{random6}/g, () => Math.floor(100000 + Math.random() * 900000));
+  // {randomN} or {randomN-[exclusions]}
+  value = value.replace(/{random(\d+)(?:-\[([\d, ]*)\])?}/g, (match, lengthStr, exclusionsStr) => {
+    const length = parseInt(lengthStr, 10);
+    const exclusions = exclusionsStr ? exclusionsStr.split(/[, ]+/).filter(x => x).map(s => s.trim()) : [];
+    const pool = "0123456789".split('').filter(d => !exclusions.includes(d));
+    if (pool.length === 0) {
+      console.warn("Testofill: random pool is empty after exclusions:", exclusions);
+      return match;
+    }
+    let result = '';
+    for (let i = 0; i < length; i++) {
+       result += pool[Math.floor(Math.random() * pool.length)];
+    }
+    return result;
+  });
 
   // {phoneUS} - Special generator: +1500yxxxxxx where y ≠ 2
   if (value.includes('{phoneUS}')) {
@@ -505,12 +520,18 @@ async function processPlaceholders(value) {
     });
   }
 
-  // Random names using Chance.js (if available)
+  // Random names and addresses using Chance.js (if available)
   if (typeof chance !== 'undefined') {
     value = value.replace(/{firstName}/g, () => chance.first());
     value = value.replace(/{lastName}/g, () => chance.last());
     value = value.replace(/{fullName}/g, () => chance.name());
+    value = value.replace(/{streetName}/g, () => chance.word({ capitalize: true }));
+    value = value.replace(/{streetType}/g, () => chance.pickone(['Street', 'Road', 'Avenue', 'Lane', 'Drive', 'Court', 'Circuit', 'Place', 'Boulevard', 'Way']));
+    value = value.replace(/{postcodeUS}/g, () => chance.zip());
   }
+
+  // AU Postcode (4 digits)
+  value = value.replace(/{postcodeAU}/g, () => Math.floor(2000 + Math.random() * 6000).toString());
 
   return value;
 }

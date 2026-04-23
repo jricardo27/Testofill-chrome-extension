@@ -1,3 +1,5 @@
+import { logger } from "./logger.js";
+
 /* Get the rules and try to apply them to this page, if matched */
 export async function findMatchingRules(currentUrl) {
   const items = await chrome.storage.local.get('testofill.rules');
@@ -66,7 +68,7 @@ export async function getFullRules() {
 
 function checkLastError() {
   if (typeof chrome.runtime.lastError !== "undefined") {
-    console.log("ERROR Rules Store: Loading failed", chrome.runtime.lastError);
+    logger.error("ERROR Rules Store: Loading failed", chrome.runtime.lastError);
     throw new Error(`ERROR Rules Store: Loading failed: ${chrome.runtime.lastError}`);
   }
 }
@@ -80,7 +82,7 @@ export async function saveRulesToStorage(rules) {
     // F.ex. due to {message: "QUOTA_BYTES_PER_ITEM quota exceeded"} // 4kB
     var error = chrome.runtime.lastError.message + " when trying to save " +
       JSON.stringify(rules).length + 'testofill.rules'.length + " B";
-    console.log("FAILED to store rules due to %s; rules: ",
+    logger.error("FAILED to store rules due to %s; rules: ",
       error,
       rules);
     throw new Error(error);

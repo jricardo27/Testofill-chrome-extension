@@ -1,4 +1,5 @@
 import * as rs from "./shared/rules-store.js";
+import { logger } from "./shared/logger.js";
 // Options storage
 
 function showStatus(message, type) {
@@ -145,7 +146,7 @@ function restore_options(editor) {
   chrome.storage.local.get('testofill.rules', function (items) {
     if (typeof chrome.runtime.lastError === "undefined") {
       var rules = items['testofill.rules'];
-      console.log("Rules restored: ", rules);
+      logger.log("Rules restored: ", rules);
 
       if (typeof rules !== "undefined") { // TODO verify behaves OK if there are no saved rules
         editor.set(rules);
@@ -157,7 +158,7 @@ function restore_options(editor) {
 
     } else {
       showError("Restoring the rules failed: " + chrome.runtime.lastError);
-      console.log("ERROR restoring rules", chrome.runtime.lastError);
+      logger.error("ERROR restoring rules", chrome.runtime.lastError);
     }
   });
 }
@@ -169,7 +170,7 @@ function init() {
     mode: 'tree',
     modes: ['tree', 'code'], // allowed modes
     error: function (err) {
-      console.log("JSONEditor error:", err);
+      logger.error("JSONEditor error:", err);
     }
   };
   var editor = new jsoneditor.JSONEditor(container, options);

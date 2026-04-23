@@ -32,7 +32,12 @@ The plugin must support these field types with specific behaviors:
 ### 4. Dynamic Value Placeholders
 Critical feature for generating unique test data:
 - **`{timestamp}`**: For unique identifiers (e.g., `test.user.t{timestamp}@example.com`)
-- **`{random4}`**: 4-digit random values (e.g., `XXX-XX-{random4}` for SSN)
+- **`{randomN}`**: Any number of random digits (e.g., `{random2}`, `{random5}`, etc.)
+- **`{randomN-[ex]}`**: N-digit random values excluding specific digits (e.g., `{random3-[1,5]}` to generate 3 digits excluding 1 and 5)
+- **`{streetName}`**: Random street name (e.g., "Main", "Broadway")
+- **`{streetType}`**: Random street type (e.g., "Street", "Road", "Avenue")
+- **`{postcodeAU}`**: AU postcode (4-digit, e.g., 2000-7999)
+- **`{postcodeUS}`**: US postcode (5-digit zip code)
 - **`{random6}`**: 6-digit random values (e.g., phone numbers, verification codes)
 
 ### 5. Field Configuration Options

@@ -21,13 +21,15 @@ export function hasDomainPermission(tab) {
 }
 
 
+import { logger } from "./logger.js";
+
 export async function sendMessageToContentScript(tab, messageId, payload) {
   try {
     const resp = await chrome.tabs.sendMessage(tab.id, { id: messageId, payload: payload });
-    console.debug("Response from content script for", messageId, resp);
+    logger.debug("Response from content script for", messageId, resp);
     return resp;
   } catch (err) {
-    console.error("Failed to send message to content script:", err.message, err);
+    logger.error("Failed to send message to content script:", err.message, err);
     // This likely means the user had not granted us host permissions
     // on this domain
     throw err;

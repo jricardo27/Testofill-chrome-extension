@@ -29,6 +29,7 @@
         "content/lib/underscore-min.js",
         "content/lib/chance.min.js",
         "content/generative.js",
+        "content/logger-content.js",
         "content/testofill-run.js"
       ],
       "run_at": "document_end",
