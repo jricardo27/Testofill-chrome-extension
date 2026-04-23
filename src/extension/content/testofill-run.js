@@ -422,8 +422,22 @@ function setInputValue(elm, value) {
   if (tracker) tracker.setValue(value);
 
   // Dispatch events to wake up listeners
+  elm.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+  elm.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  elm.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
   elm.dispatchEvent(new Event('input', { bubbles: true }));
   elm.dispatchEvent(new Event('change', { bubbles: true }));
+  elm.dispatchEvent(new Event('focusout', { bubbles: true }));
+
+  // Try document.execCommand for even more native-like input triggering
+  try {
+    elm.focus();
+    elm.select();
+    document.execCommand('insertText', false, value);
+  } catch (e) {
+    // Ignore if it fails or is not supported/possible
+  }
 
   // Simulate synthetic input event for frameworks checking event properties
   elm.dispatchEvent(new InputEvent('input', {
@@ -445,6 +459,10 @@ function setInputValue(elm, value) {
       elm.setAttribute('readonly', '');
     }
     elm.dispatchEvent(new Event('blur', { bubbles: true }));
+
+    // Simulate Escape to close any dropdowns/pickers opened by our interaction
+    elm.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true }));
+    elm.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true }));
   }, 200);
 }
 
