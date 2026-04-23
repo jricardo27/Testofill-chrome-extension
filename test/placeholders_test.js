@@ -50,7 +50,6 @@ const sandbox = {
         last: () => "Doe",
         name: () => "John Doe",
         word: () => "Example",
-        pickone: (arr) => arr[0],
         city: () => "New York",
         state: () => "NY",
         zip: () => "12345"
@@ -127,7 +126,7 @@ describe('Placeholder Processing', function () {
 
     it('should replace street and postcode placeholders', async function () {
         const val = await processPlaceholders("{streetName} {streetType}, AU:{postcodeAU}, US:{postcodeUS}");
-        expect(val).to.match(/^Example Street, AU:\d{4}, US:12345$/);
+        expect(val).to.match(/^Example (Street|Road|Avenue|Lane|Drive|Court|Circuit|Place|Boulevard|Way), AU:\d{4}, US:12345$/);
     });
 
     it('should replace city and state placeholders', async function () {

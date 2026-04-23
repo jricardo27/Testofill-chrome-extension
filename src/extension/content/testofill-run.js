@@ -153,6 +153,7 @@ async function getKeywordPreview() {
 
 // Helper for local matching within content script
 async function matchRulesLocally(currentUrl) {
+  if (typeof chrome === 'undefined' || !chrome.runtime?.id) return [];
   console.log("Testofill: Checking for matches against URL:", currentUrl);
   const data = await chrome.storage.local.get('testofill.rules');
   const rules = data['testofill.rules'] || {};
@@ -279,6 +280,10 @@ function createFloatingUI(matches) {
 // Global state to avoid flicker
 let lastMatchesHash = "";
 function updateAvailableForms() {
+  if (typeof chrome === 'undefined' || !chrome.runtime?.id) {
+    if (typeof observer !== 'undefined') observer.disconnect();
+    return;
+  }
   chrome.storage.local.get(['testofill.floatingIconEnabled']).then((settings) => {
     const isEnabled = settings['testofill.floatingIconEnabled'] !== false; // Default true
     if (!isEnabled) {
@@ -489,7 +494,9 @@ async function processPlaceholders(value) {
     const y = "013456789"[Math.floor(Math.random() * 9)];
     const rest = Math.random().toString().slice(2, 8); // 6 random digits
     const phone = `+1500${y}${rest}`;
-    await chrome.storage.local.set({ 'testofill.lastPhoneUS': phone });
+    if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
+      await chrome.storage.local.set({ 'testofill.lastPhoneUS': phone });
+    }
     value = value.replace(/{phoneUS}/g, phone);
   }
 
@@ -498,27 +505,33 @@ async function processPlaceholders(value) {
     const y = "013456789"[Math.floor(Math.random() * 9)];
     const rest = Math.random().toString().slice(2, 8); // 6 random digits
     const phone = `500${y}${rest}`;
-    await chrome.storage.local.set({ 'testofill.lastPhoneUS': phone });
+    if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
+      await chrome.storage.local.set({ 'testofill.lastPhoneUS': phone });
+    }
     value = value.replace(/{phoneUSLocal}/g, phone);
   }
 
   // {lastPhoneUS6} - Retrieve last 6 digits of the last generated US phone
   if (value.includes('{lastPhoneUS6}')) {
-    const data = await chrome.storage.local.get('testofill.lastPhoneUS');
-    const lastPhone = data['testofill.lastPhoneUS'] || "";
-    const last6 = lastPhone.slice(-6);
-    value = value.replace(/{lastPhoneUS6}/g, last6);
+    if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
+      const data = await chrome.storage.local.get('testofill.lastPhoneUS');
+      const lastPhone = data['testofill.lastPhoneUS'] || "";
+      const last6 = lastPhone.slice(-6);
+      value = value.replace(/{lastPhoneUS6}/g, last6);
+    }
   }
 
   // {lastPhoneUSDigit:N} - Get the N-th digit (0-5) of the last 6 digits
   if (value.includes('{lastPhoneUSDigit:')) {
-    const data = await chrome.storage.local.get('testofill.lastPhoneUS');
-    const lastPhone = data['testofill.lastPhoneUS'] || "";
-    const last6 = lastPhone.slice(-6);
-    value = value.replace(/{lastPhoneUSDigit:(\d)}/g, (match, digit) => {
-      const idx = parseInt(digit, 10);
-      return last6[idx] || "";
-    });
+    if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
+      const data = await chrome.storage.local.get('testofill.lastPhoneUS');
+      const lastPhone = data['testofill.lastPhoneUS'] || "";
+      const last6 = lastPhone.slice(-6);
+      value = value.replace(/{lastPhoneUSDigit:(\d)}/g, (match, digit) => {
+        const idx = parseInt(digit, 10);
+        return last6[idx] || "";
+      });
+    }
   }
 
   // Random names and addresses using Chance.js (if available)
@@ -527,7 +540,8 @@ async function processPlaceholders(value) {
     value = value.replace(/{lastName}/g, () => chance.last());
     value = value.replace(/{fullName}/g, () => chance.name());
     value = value.replace(/{streetName}/g, () => chance.word({ capitalize: true }));
-    value = value.replace(/{streetType}/g, () => chance.pickone(['Street', 'Road', 'Avenue', 'Lane', 'Drive', 'Court', 'Circuit', 'Place', 'Boulevard', 'Way']));
+    const streetTypes = ['Street', 'Road', 'Avenue', 'Lane', 'Drive', 'Court', 'Circuit', 'Place', 'Boulevard', 'Way'];
+    value = value.replace(/{streetType}/g, () => streetTypes[Math.floor(Math.random() * streetTypes.length)]);
     value = value.replace(/{city}/g, () => chance.city());
     value = value.replace(/{stateUS}/g, () => chance.state());
     value = value.replace(/{postcodeUS}/g, () => chance.zip());
@@ -841,6 +855,7 @@ function handleMessage(message, sender, sendResponseFn) {
 }
 
 function onColorSchemeChange(mql) {
+  if (typeof chrome === 'undefined' || !chrome.runtime?.id) return;
   chrome.runtime.sendMessage({
     id: 'visual_mode_change', payload: { mode: mql.matches ? 'dark' : 'light' }
   });
