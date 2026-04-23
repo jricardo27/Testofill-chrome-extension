@@ -408,13 +408,16 @@ function setInputValue(elm, value) {
     Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set ||
     Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, "value")?.set;
 
-  // React 16+ value tracking hack
   const tracker = elm._valueTracker;
   if (tracker) tracker.setValue(""); 
 
+  // 3. Open UI via focus and clicks BEFORE setting value
   elm.focus();
+  elm.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+  elm.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  elm.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-  // 3. Set value via native setter and native command
+  // 4. Set value via native setter and native command
   if (nativeSetter && nativeSetter !== Object.getOwnPropertyDescriptor(elm, "value")?.set) {
     nativeSetter.call(elm, value);
   } else {
@@ -426,18 +429,14 @@ function setInputValue(elm, value) {
     document.execCommand('insertText', false, value);
   } catch (e) { /* ignore */ }
 
-  // 4. Simulate user interactions to wake up framework listeners
-  elm.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-  elm.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-  elm.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-
+  // 5. Wake up framework listeners
   elm.dispatchEvent(new Event('input', { bubbles: true }));
   elm.dispatchEvent(new Event('change', { bubbles: true }));
   elm.dispatchEvent(new InputEvent('input', {
     bubbles: true, composed: true, data: value, inputType: 'insertText'
   }));
 
-  // 5. Restore state and dismiss dropdowns
+  // 6. Restore state and dismiss dropdowns after a buffer
   setTimeout(() => {
     console.log(`Testofill: Post-fill check for '${elm.id || elm.name}': value is "${elm.value}"`);
     if (isReadOnly) {
@@ -446,10 +445,10 @@ function setInputValue(elm, value) {
     }
     elm.dispatchEvent(new Event('blur', { bubbles: true }));
     
-    // Attempt to close dropdowns by clicking outside on the body
+    // Clicking body to dismiss dropdowns
     document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-  }, 200);
+  }, 500);
 }
 
 async function waitForElement(selector, timeout = 5000) {
