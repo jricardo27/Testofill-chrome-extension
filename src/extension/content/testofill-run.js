@@ -2,6 +2,7 @@
  * The Content Script injected into the browser document and
  * invoked by messages from the extension (via event.js).
  */
+(function() {
 
 const FLOATING_UI_CSS = `
   #testofill-floating-ui {
@@ -896,3 +897,5 @@ if (window.top === window.self) {
     }
   });
 }
+
+})();
