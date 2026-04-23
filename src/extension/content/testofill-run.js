@@ -411,13 +411,14 @@ function setInputValue(elm, value) {
   const tracker = elm._valueTracker;
   if (tracker) tracker.setValue(""); 
 
-  // 3. Open UI via focus and clicks BEFORE setting value
   elm.focus();
+
+  // 3. Open UI
   elm.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
   elm.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
   elm.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-  // 4. Set value via native setter and native command
+  // 4. Set value via native setter
   if (nativeSetter && nativeSetter !== Object.getOwnPropertyDescriptor(elm, "value")?.set) {
     nativeSetter.call(elm, value);
   } else {
@@ -425,18 +426,20 @@ function setInputValue(elm, value) {
   }
   if (tracker) tracker.setValue(value);
 
+  // 5. Native command (with selectAll for no duplicates)
   try {
+    document.execCommand('selectAll', false, null);
     document.execCommand('insertText', false, value);
   } catch (e) { /* ignore */ }
 
-  // 5. Wake up framework listeners
+  // 6. Wake up framework listeners
   elm.dispatchEvent(new Event('input', { bubbles: true }));
   elm.dispatchEvent(new Event('change', { bubbles: true }));
   elm.dispatchEvent(new InputEvent('input', {
     bubbles: true, composed: true, data: value, inputType: 'insertText'
   }));
 
-  // 6. Restore state and dismiss dropdowns after a buffer
+  // 7. Restore state and dismiss dropdowns after a buffer
   setTimeout(() => {
     console.log(`Testofill: Post-fill check for '${elm.id || elm.name}': value is "${elm.value}"`);
     if (isReadOnly) {
