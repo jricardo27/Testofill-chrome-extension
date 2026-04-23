@@ -394,13 +394,14 @@ function setInputValue(elm, value) {
   if (!elm) return;
   console.log(`Testofill: Filling '${elm.name || elm.id}' with '${value}'`, elm);
 
+  // 1. Remove readonly if present
   const isReadOnly = elm.readOnly || elm.hasAttribute('readonly');
   if (isReadOnly) {
     elm.readOnly = false;
     elm.removeAttribute('readonly');
   }
 
-  // React-specific: Bypassing the value setter tracking
+  // 2. React-specific: Bypassing the value setter tracking
   const proto = Object.getPrototypeOf(elm);
   const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set ||
     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set ||
@@ -409,49 +410,34 @@ function setInputValue(elm, value) {
 
   // React 16+ value tracking hack
   const tracker = elm._valueTracker;
-  if (tracker) tracker.setValue(""); // Reset tracker to force change detection
+  if (tracker) tracker.setValue(""); 
 
-  elm.dispatchEvent(new Event('focus', { bubbles: true }));
+  elm.focus();
 
+  // 3. Set value via native setter and native command
   if (nativeSetter && nativeSetter !== Object.getOwnPropertyDescriptor(elm, "value")?.set) {
     nativeSetter.call(elm, value);
   } else {
     elm.value = value;
   }
-
   if (tracker) tracker.setValue(value);
 
-  // Dispatch events to wake up listeners
+  try {
+    document.execCommand('insertText', false, value);
+  } catch (e) { /* ignore */ }
+
+  // 4. Simulate user interactions to wake up framework listeners
   elm.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
   elm.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
   elm.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
   elm.dispatchEvent(new Event('input', { bubbles: true }));
   elm.dispatchEvent(new Event('change', { bubbles: true }));
-  elm.dispatchEvent(new Event('focusout', { bubbles: true }));
-
-  // Try document.execCommand for even more native-like input triggering
-  try {
-    elm.focus();
-    elm.select();
-    document.execCommand('insertText', false, value);
-  } catch (e) {
-    // Ignore if it fails or is not supported/possible
-  }
-
-  // Simulate synthetic input event for frameworks checking event properties
   elm.dispatchEvent(new InputEvent('input', {
-    bubbles: true,
-    composed: true,
-    data: value,
-    inputType: 'insertText'
+    bubbles: true, composed: true, data: value, inputType: 'insertText'
   }));
 
-  // Simulate "Enter" to commit the value just in case
-  elm.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-  elm.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }));
-
-  // Restore state after a delay to allow framework processing or re-renders
+  // 5. Restore state and dismiss dropdowns
   setTimeout(() => {
     console.log(`Testofill: Post-fill check for '${elm.id || elm.name}': value is "${elm.value}"`);
     if (isReadOnly) {
@@ -459,10 +445,10 @@ function setInputValue(elm, value) {
       elm.setAttribute('readonly', '');
     }
     elm.dispatchEvent(new Event('blur', { bubbles: true }));
-
-    // Simulate Escape to close any dropdowns/pickers opened by our interaction
-    elm.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true }));
-    elm.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true }));
+    
+    // Attempt to close dropdowns by clicking outside on the body
+    document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   }, 200);
 }
 
