@@ -699,6 +699,7 @@
     "Use {timestamp} placeholder for dynamic generation",
     "Use {randomN} placeholder for any number of random digits (e.g., {random5}, {random2})",
     "Use {randomN-[exclusions]} to exclude specific digits (e.g., {random3-[1,5]} for 3 digits excluding 1 and 5)",
+    "Use {city}, {stateAU}, and {stateUS} for location data",
     "Use {streetName} and {streetType} for random address components",
     "Use {postcodeAU} and {postcodeUS} for region-specific postcodes",
     "Use {random6} placeholder for unique 6-digit values",

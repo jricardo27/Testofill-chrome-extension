@@ -138,7 +138,8 @@ const FLOATING_UI_CSS = `
 async function getKeywordPreview() {
   const keys = [
     '{timestamp}', '{time}', '{firstName}', '{lastName}', '{fullName}',
-    '{streetName}', '{streetType}', '{postcodeAU}', '{postcodeUS}',
+    '{streetName}', '{streetType}', '{city}', '{stateAU}', '{stateUS}',
+    '{postcodeAU}', '{postcodeUS}',
     '{random2}', '{random3-[1,5]}', '{random4}', '{random6}', '{phoneUS}', '{phoneUSLocal}',
     '{lastPhoneUS6}', '{lastPhoneUSDigit:0}'
   ];
@@ -527,8 +528,16 @@ async function processPlaceholders(value) {
     value = value.replace(/{fullName}/g, () => chance.name());
     value = value.replace(/{streetName}/g, () => chance.word({ capitalize: true }));
     value = value.replace(/{streetType}/g, () => chance.pickone(['Street', 'Road', 'Avenue', 'Lane', 'Drive', 'Court', 'Circuit', 'Place', 'Boulevard', 'Way']));
+    value = value.replace(/{city}/g, () => chance.city());
+    value = value.replace(/{stateUS}/g, () => chance.state());
     value = value.replace(/{postcodeUS}/g, () => chance.zip());
   }
+
+  // Region specific states
+  value = value.replace(/{stateAU}/g, () => {
+    const states = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT'];
+    return states[Math.floor(Math.random() * states.length)];
+  });
 
   // AU Postcode (4 digits)
   value = value.replace(/{postcodeAU}/g, () => Math.floor(2000 + Math.random() * 6000).toString());

@@ -272,7 +272,7 @@ async function processWorkflowStep(tabId, currentUrl) {
 /* Only triggered if there is 0-1 ruleSets (i.e. of there is no popup win). */
 chrome.action.onClicked.addListener(async (tab) => {
 
-  const access = integr.ensureDomainPermission(tab);
+  const access = await integr.ensureDomainPermission(tab);
   if (access) {
     return rs.findMatchingRules(tab.url)
       .then((ruleSets) => sendMessageToContentScript(tab, "fill_form", ruleSets[0]));
