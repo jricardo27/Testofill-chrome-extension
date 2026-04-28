@@ -3,6 +3,7 @@
  * invoked by messages from the extension (via event.js).
  */
 (function() {
+const logger = window.testofillLogger || console;
 
 const FLOATING_UI_CSS = `
   #testofill-floating-ui {
@@ -156,11 +157,11 @@ async function getKeywordPreview() {
 // Helper for local matching within content script
 async function matchRulesLocally(currentUrl) {
   if (typeof chrome === 'undefined' || !chrome.runtime?.id) return [];
-  console.log("Testofill: Checking for matches against URL:", currentUrl);
+  logger.log("Testofill: Checking for matches against URL:", currentUrl);
   const data = await chrome.storage.local.get('testofill.rules');
   const rules = data['testofill.rules'] || {};
   if (!rules.forms) {
-    console.log("Testofill: No rules.forms found in storage.");
+    logger.log("Testofill: No rules.forms found in storage.");
     return [];
   }
 
@@ -178,7 +179,7 @@ async function matchRulesLocally(currentUrl) {
     }
     if (country) break;
   }
-  console.log("Testofill: Detected country context:", country);
+  logger.log("Testofill: Detected country context:", country);
 
   for (const formName in rules.forms) {
     const formDef = rules.forms[formName];
@@ -195,7 +196,7 @@ async function matchRulesLocally(currentUrl) {
           matches = matches.concat(formDef.map(f => ({ ...f, name: f.name || formName, context: { country } })));
         }
       } catch (e) {
-        console.warn("Testofill: Error matching form key as regex:", formName);
+        logger.warn("Testofill: Error matching form key as regex:", formName);
       }
     } else if (formDef.urlPattern) {
       // Key is name, value is object with urlPattern
@@ -205,17 +206,17 @@ async function matchRulesLocally(currentUrl) {
         if (isMatch) {
           // CHECK REQUIRED SELECTOR
           if (formDef.requiredSelector && Sizzle(formDef.requiredSelector).length === 0) {
-            console.log(`Testofill: RuleSet '${formName}' skipped - requiredSelector '${formDef.requiredSelector}' not found.`);
+            logger.log(`Testofill: RuleSet '${formName}' skipped - requiredSelector '${formDef.requiredSelector}' not found.`);
             continue;
           }
           matches.push({ ...formDef, name: formName, context: { country } });
         }
       } catch (e) {
-        console.error(`Testofill: Invalid urlPattern regex for form '${formName}':`, formDef.urlPattern);
+        logger.error(`Testofill: Invalid urlPattern regex for form '${formName}':`, formDef.urlPattern);
       }
     }
   }
-  console.log(`Testofill: Found ${matches.length} matching ruleSet(s) for this page.`);
+  logger.log(`Testofill: Found ${matches.length} matching ruleSet(s) for this page.`);
   return matches;
 }
 
@@ -394,7 +395,7 @@ function sleep(ms) {
 /** Robustly set input value and trigger events for modern frameworks (React, etc.) */
 function setInputValue(elm, value) {
   if (!elm) return;
-  console.log(`Testofill: Filling '${elm.name || elm.id}' with '${value}'`, elm);
+  logger.log(`Testofill: Filling '${elm.name || elm.id}' with '${value}'`, elm);
 
   // 1. Remove readonly if present
   const isReadOnly = elm.readOnly || elm.hasAttribute('readonly');
@@ -443,7 +444,7 @@ function setInputValue(elm, value) {
 
   // 7. Restore state and dismiss dropdowns after a buffer
   setTimeout(() => {
-    console.log(`Testofill: Post-fill check for '${elm.id || elm.name}': value is "${elm.value}"`);
+    logger.log(`Testofill: Post-fill check for '${elm.id || elm.name}': value is "${elm.value}"`);
     if (isReadOnly) {
       elm.readOnly = true;
       elm.setAttribute('readonly', '');
@@ -461,7 +462,7 @@ async function waitForElement(selector, timeout = 5000) {
   // Using Sizzle to support :contains() and other advanced selectors
   while (Sizzle(selector).length === 0) {
     if (Date.now() - startTime > timeout) {
-      console.warn(`Testofill: Timeout waiting for selector: ${selector}`);
+      logger.warn(`Testofill: Timeout waiting for selector: ${selector}`);
       return false;
     }
     await sleep(100);
@@ -487,7 +488,7 @@ async function processPlaceholders(value) {
     const exclusions = exclusionsStr ? exclusionsStr.split(/[, ]+/).filter(x => x).map(s => s.trim()) : [];
     const pool = "0123456789".split('').filter(d => !exclusions.includes(d));
     if (pool.length === 0) {
-      console.warn("Testofill: random pool is empty after exclusions:", exclusions);
+      logger.warn("Testofill: random pool is empty after exclusions:", exclusions);
       return match;
     }
     let result = '';
@@ -633,13 +634,13 @@ async function fillForms(ruleSet) {
 
   // 0. RequiredSelector (Discrimination)
   if (ruleSet.requiredSelector && Sizzle(ruleSet.requiredSelector).length === 0) {
-    console.log(`Testofill: Aborting, required selector '${ruleSet.requiredSelector}' not found.`);
+    logger.log(`Testofill: Aborting, required selector '${ruleSet.requiredSelector}' not found.`);
     return;
   }
 
   // 1. WaitForSelector
   if (ruleSet.waitForSelector) {
-    console.log(`Testofill: Waiting for selector ${ruleSet.waitForSelector}...`);
+    logger.log(`Testofill: Waiting for selector ${ruleSet.waitForSelector}...`);
     await waitForElement(ruleSet.waitForSelector);
   }
 
@@ -650,7 +651,7 @@ async function fillForms(ruleSet) {
 
     // Country Filter
     if (field.country && context.country && field.country !== context.country) {
-      console.debug(`Skipping field ${field.description} due to country mismatch (${field.country} !== ${context.country})`);
+      logger.debug(`Skipping field ${field.description} due to country mismatch (${field.country} !== ${context.country})`);
       continue;
     }
 
@@ -689,7 +690,7 @@ async function fillForms(ruleSet) {
   }
 
   if (unmatchedSelectors.length > 0) {
-    console.log("Warning: some fields matched nothing in the set named " +
+    logger.log("Warning: some fields matched nothing in the set named " +
       ruleSet.name,
       unmatchedSelectors);
   }
@@ -715,9 +716,9 @@ async function fillField(fieldElm, fieldRule) {
     fieldElm.dispatchEvent(new MouseEvent('click', { 'view': window, 'bubbles': true }));
   } else if (fieldElm.type === 'file') {
     // File inputs are read-only for security, just log/notify
-    console.log(`Testofill: Skipping file input ${fieldRule.selector || fieldRule.query}. Manual selection required.`);
-    if (fieldRule.value) console.log(`Expected file: ${fieldRule.value}`);
-    if (fieldRule.note) console.log(`Note: ${fieldRule.note}`);
+    logger.log(`Testofill: Skipping file input ${fieldRule.selector || fieldRule.query}. Manual selection required.`);
+    if (fieldRule.value) logger.log(`Expected file: ${fieldRule.value}`);
+    if (fieldRule.note) logger.log(`Note: ${fieldRule.note}`);
     // Optional: Focus it so user sees it
     fieldElm.focus();
     fieldElm.click(); // Some browsers allow opening dialog, most block it. Worth a try or just focus.
@@ -730,12 +731,12 @@ async function fillField(fieldElm, fieldRule) {
     // ... existing select-multiple logic ...
     if (!Array.isArray(value)) {
       // Try single value
-      // console.error...
+      // logger.error...
     }
     // For now keeping existing logic for arrays, but if placeholder returns string, wrap in array?
     // Let's assume select-multiple values don't use string placeholders for the array itself usually.
     if (!Array.isArray(value)) {
-      console.error("The form element is a select-multiple and thus the value " +
+      logger.error("The form element is a select-multiple and thus the value " +
         "to fill in should be null or an array of 0+ values but it is not an array; " +
         "query: " + (fieldRule.selector || fieldRule.query) + ", the value: ", value,
         "; the field: ", fieldElm);
@@ -762,7 +763,7 @@ async function fillField(fieldElm, fieldRule) {
     fieldElm.dispatchEvent(new Event('input', { bubbles: true }));
   } else if (fieldElm.tagName === 'INPUT' && (fieldElm.readOnly || fieldElm.hasAttribute('readonly'))) {
     // Treat readonly inputs as custom dropdowns (like React Select)
-    console.log("Testofill: Readonly input detected, attempting to treat as custom dropdown for value:", valueToFill);
+    logger.log("Testofill: Readonly input detected, attempting to treat as custom dropdown for value:", valueToFill);
     
     // Simulate user clicking to open the dropdown
     fieldElm.focus();
@@ -821,7 +822,7 @@ async function fillField(fieldElm, fieldRule) {
     }
     
     if (targetOption) {
-      console.log("Testofill: Found custom option element, clicking it.", targetOption);
+      logger.log("Testofill: Found custom option element, clicking it.", targetOption);
       targetOption.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
       targetOption.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
       targetOption.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -831,7 +832,7 @@ async function fillField(fieldElm, fieldRule) {
       document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
       document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     } else {
-      console.warn(`Testofill: Could not find custom dropdown option for "${valueToFill}", falling back to setInputValue`);
+      logger.warn(`Testofill: Could not find custom dropdown option for "${valueToFill}", falling back to setInputValue`);
       setInputValue(fieldElm, valueToFill);
     }
   } else { // Typically a text <input>
@@ -868,7 +869,7 @@ function makeTestofillJsonFromPageForms(tabUrl) {
   var debugStrs = [];
 
   // if (tabUrl != document.location.toString()) {
-  //   console.debug("document.location != tabUrl", { loc: document.location.toString(), tabUrl });
+  //   logger.debug("document.location != tabUrl", { loc: document.location.toString(), tabUrl });
   //   return null; // skip forms in iframes etc.
   // }
 
@@ -919,7 +920,7 @@ function makeTestofillJsonFromPageForms(tabUrl) {
       " forms were skipped for they had no relevant fields");
   }
 
-  console.log(`Testofill: Saving ${formsNonempty.length} form(s) out of ${document.forms.length} at ${document.location.toString()}: `, debugStrs, "See https://github.com/holyjak/Testofill-chrome-extension/wiki/Help:-Save-forms-saved-input-from-0-forms for help");
+  logger.log(`Testofill: Saving ${formsNonempty.length} form(s) out of ${document.forms.length} at ${document.location.toString()}: `, debugStrs, "See https://github.com/holyjak/Testofill-chrome-extension/wiki/Help:-Save-forms-saved-input-from-0-forms for help");
 
   // A single page may contain multiple documents due to iframes so make it possible to distinguish them:
   return formsNonempty;
@@ -984,7 +985,7 @@ function handleMessage(message, sender, sendResponseFn) {
   } else if (message.id === "extracted_forms_save_failed") {
     alert("FAILED to save " + payload.count + " forms extracted from " + payload.url + " due to " + payload.error);
   } else {
-    console.log("ERROR: Unsupported message id received: " + message.id, message);
+    logger.log("ERROR: Unsupported message id received: " + message.id, message);
   }
 }
 
