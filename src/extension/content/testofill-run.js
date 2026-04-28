@@ -142,7 +142,8 @@ async function getKeywordPreview() {
     '{streetName}', '{streetType}', '{city}', '{stateAU}', '{stateUS}',
     '{postcodeAU}', '{postcodeUS}',
     '{random2}', '{random3-[1,5]}', '{random4}', '{random6}', '{phoneUS}', '{phoneUSLocal}',
-    '{lastPhoneUS6}', '{lastPhoneUSDigit:0}'
+    '{lastPhoneUS6}', '{lastPhoneUSDigit:0}', '{phoneAU}', '{phoneAULocal}',
+    '{lastPhoneAU6}', '{lastPhoneAUDigit:0}'
   ];
   const results = {};
   for (const k of keys) {
@@ -496,10 +497,19 @@ async function processPlaceholders(value) {
     return result;
   });
 
+  const get6Digits = () => String(Math.floor(Math.random() * 1000000)).padStart(6, '0');
+  const getAU6Digits = () => {
+    const validFirstTwo = "023456789"; // digits != 1
+    const d1 = validFirstTwo[Math.floor(Math.random() * 9)];
+    const d2 = validFirstTwo[Math.floor(Math.random() * 9)];
+    const remaining = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+    return `${d1}${d2}${remaining}`;
+  };
+
   // {phoneUS} - Special generator: +1500yxxxxxx where y ≠ 2
   if (value.includes('{phoneUS}')) {
     const y = "013456789"[Math.floor(Math.random() * 9)];
-    const rest = Math.random().toString().slice(2, 8); // 6 random digits
+    const rest = get6Digits(); // 6 random digits
     const phone = `+1500${y}${rest}`;
     if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
       await chrome.storage.local.set({ 'testofill.lastPhoneUS': phone });
@@ -510,12 +520,32 @@ async function processPlaceholders(value) {
   // {phoneUSLocal} - Special generator: 500yxxxxxx where y ≠ 2
   if (value.includes('{phoneUSLocal}')) {
     const y = "013456789"[Math.floor(Math.random() * 9)];
-    const rest = Math.random().toString().slice(2, 8); // 6 random digits
+    const rest = get6Digits(); // 6 random digits
     const phone = `500${y}${rest}`;
     if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
       await chrome.storage.local.set({ 'testofill.lastPhoneUS': phone });
     }
     value = value.replace(/{phoneUSLocal}/g, phone);
+  }
+
+  // {phoneAU} - Special generator: +61400xxxxxx
+  if (value.includes('{phoneAU}')) {
+    const rest = getAU6Digits();
+    const phone = `+61400${rest}`;
+    if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
+      await chrome.storage.local.set({ 'testofill.lastPhoneAU': phone });
+    }
+    value = value.replace(/{phoneAU}/g, phone);
+  }
+
+  // {phoneAULocal} - Special generator: 0400xxxxxx
+  if (value.includes('{phoneAULocal}')) {
+    const rest = getAU6Digits();
+    const phone = `0400${rest}`;
+    if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
+      await chrome.storage.local.set({ 'testofill.lastPhoneAU': phone });
+    }
+    value = value.replace(/{phoneAULocal}/g, phone);
   }
 
   // {lastPhoneUS6} - Retrieve last 6 digits of the last generated US phone
@@ -535,6 +565,29 @@ async function processPlaceholders(value) {
       const lastPhone = data['testofill.lastPhoneUS'] || "";
       const last6 = lastPhone.slice(-6);
       value = value.replace(/{lastPhoneUSDigit:(\d)}/g, (match, digit) => {
+        const idx = parseInt(digit, 10);
+        return last6[idx] || "";
+      });
+    }
+  }
+
+  // {lastPhoneAU6} - Retrieve last 6 digits of the last generated AU phone
+  if (value.includes('{lastPhoneAU6}')) {
+    if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
+      const data = await chrome.storage.local.get('testofill.lastPhoneAU');
+      const lastPhone = data['testofill.lastPhoneAU'] || "";
+      const last6 = lastPhone.slice(-6);
+      value = value.replace(/{lastPhoneAU6}/g, last6);
+    }
+  }
+
+  // {lastPhoneAUDigit:N} - Get the N-th digit (0-5) of the last 6 digits
+  if (value.includes('{lastPhoneAUDigit:')) {
+    if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
+      const data = await chrome.storage.local.get('testofill.lastPhoneAU');
+      const lastPhone = data['testofill.lastPhoneAU'] || "";
+      const last6 = lastPhone.slice(-6);
+      value = value.replace(/{lastPhoneAUDigit:(\d)}/g, (match, digit) => {
         const idx = parseInt(digit, 10);
         return last6[idx] || "";
       });
@@ -707,6 +760,80 @@ async function fillField(fieldElm, fieldRule) {
     fieldElm.dispatchEvent(new Event('focus', { bubbles: true }));
     fieldElm.textContent = fieldRule.textContent;
     fieldElm.dispatchEvent(new Event('input', { bubbles: true }));
+  } else if (fieldElm.tagName === 'INPUT' && (fieldElm.readOnly || fieldElm.hasAttribute('readonly'))) {
+    // Treat readonly inputs as custom dropdowns (like React Select)
+    console.log("Testofill: Readonly input detected, attempting to treat as custom dropdown for value:", valueToFill);
+    
+    // Simulate user clicking to open the dropdown
+    fieldElm.focus();
+    fieldElm.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    fieldElm.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    fieldElm.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    
+    const targetStr = String(valueToFill).trim().toLowerCase();
+    
+    const monthMap = {
+      "1": "january", "01": "january",
+      "2": "february", "02": "february",
+      "3": "march", "03": "march",
+      "4": "april", "04": "april",
+      "5": "may", "05": "may",
+      "6": "june", "06": "june",
+      "7": "july", "07": "july",
+      "8": "august", "08": "august",
+      "9": "september", "09": "september",
+      "10": "october",
+      "11": "november",
+      "12": "december"
+    };
+    
+    let targetOption = null;
+    
+    // Poll up to 20 times (1000ms) for the option to render and become visible
+    for (let i = 0; i < 20; i++) {
+      await sleep(50);
+      
+      const options = Array.from(document.querySelectorAll('button, [role="option"], li, div[class*="option"], div[class*="MenuItem"]'))
+        .filter(el => {
+          const text = el.textContent.trim().toLowerCase();
+          if (text === targetStr) return true;
+          if (monthMap[targetStr] && text === monthMap[targetStr]) return true;
+          
+          const dataValue = el.getAttribute('data-value');
+          if (dataValue && dataValue.trim().toLowerCase() === targetStr) return true;
+          const valAttr = el.getAttribute('value');
+          if (valAttr && valAttr.trim().toLowerCase() === targetStr) return true;
+          
+          return false;
+        });
+        
+      const visibleOptions = options.filter(el => {
+        const rect = el.getBoundingClientRect();
+        // ensure element is visually present
+        const style = window.getComputedStyle(el);
+        return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.opacity !== '0';
+      });
+      
+      if (visibleOptions.length > 0) {
+        targetOption = visibleOptions[visibleOptions.length - 1];
+        break;
+      }
+    }
+    
+    if (targetOption) {
+      console.log("Testofill: Found custom option element, clicking it.", targetOption);
+      targetOption.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      targetOption.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      targetOption.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      
+      // Wait a bit and dispatch blur/body click to dismiss any remaining popups
+      await sleep(100);
+      document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    } else {
+      console.warn(`Testofill: Could not find custom dropdown option for "${valueToFill}", falling back to setInputValue`);
+      setInputValue(fieldElm, valueToFill);
+    }
   } else { // Typically a text <input>
     setInputValue(fieldElm, valueToFill);
   }
