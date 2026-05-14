@@ -201,11 +201,16 @@
           const isMatch = !!currentUrl.match(regex);
           if (isMatch) {
             const reqSel = formDef.requiredSelector || formDef.waitForSelector;
-            if (reqSel && Sizzle(reqSel).length === 0) {
-              console.warn(`[Testofill DEBUG] '${formName}' URL matched but selector NOT FOUND in DOM: '${reqSel}'`);
-              continue;
+            if (reqSel) {
+              const selectors = Array.isArray(reqSel) ? reqSel : [reqSel];
+              const missingSel = selectors.find(sel => Sizzle(sel).length === 0);
+              if (missingSel) {
+                console.warn(`[Testofill DEBUG] '${formName}' URL matched but selector NOT FOUND in DOM: '${missingSel}'`);
+                continue;
+              }
             }
-            console.warn(`[Testofill DEBUG] '${formName}' MATCHED. autorun=${!!formDef.autorun}, reqSel='${formDef.requiredSelector || formDef.waitForSelector || 'none'}' FOUND in DOM.`);
+            const reqSelLog = typeof reqSel === 'object' ? JSON.stringify(reqSel) : (reqSel || 'none');
+            console.warn(`[Testofill DEBUG] '${formName}' MATCHED. autorun=${!!formDef.autorun}, reqSel='${reqSelLog}' FOUND in DOM.`);
             matches.push({ ...formDef, name: formName, context: { country } });
           }
         } catch (e) {
@@ -652,10 +657,14 @@
     const context = ruleSet.context || {}; // e.g. { country: 'US' }
 
     // 0. RequiredSelector (Discrimination)
-    if (ruleSet.requiredSelector && Sizzle(ruleSet.requiredSelector).length === 0) {
-      console.warn(`[Testofill DEBUG] fillForms ABORTED - requiredSelector '${ruleSet.requiredSelector}' not in DOM`);
-      logger.log(`Testofill: Aborting, required selector '${ruleSet.requiredSelector}' not found.`);
-      return;
+    if (ruleSet.requiredSelector) {
+      const selectors = Array.isArray(ruleSet.requiredSelector) ? ruleSet.requiredSelector : [ruleSet.requiredSelector];
+      const missingSel = selectors.find(sel => Sizzle(sel).length === 0);
+      if (missingSel) {
+        console.warn(`[Testofill DEBUG] fillForms ABORTED - requiredSelector '${missingSel}' not in DOM`);
+        logger.log(`Testofill: Aborting, required selector '${missingSel}' not found.`);
+        return;
+      }
     }
 
     // 1. WaitForSelector

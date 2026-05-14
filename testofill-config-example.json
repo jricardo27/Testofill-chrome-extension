@@ -619,8 +619,11 @@
           "value": "{phoneAULocal}"
         }
       ],
-      "requiredSelector": "span:contains('Enter your cell phone number')",
-      "urlPattern": ".*au.*/account-verification|.*au.*/dashboard/upload-a-bill/",
+      "requiredSelector": [
+        "span:contains('Enter your cell phone number')",
+        "svg[class*='MobilePhoneNumberstyles__AUFlagIconStyled']"
+      ],
+      "urlPattern": ".*/account-verification|.*/dashboard/upload-a-bill/",
       "waitForSelector": "#phone_number"
     },
     "Phone Verification - US": {
@@ -634,8 +637,11 @@
           "value": "{phoneUSLocal}"
         }
       ],
-      "requiredSelector": "span:contains('Enter your cell phone number')",
-      "urlPattern": ".*us.*/account-verification/|.*us.*/dashboard/upload-a-bill/",
+      "requiredSelector": [
+        "span:contains('Enter your cell phone number')",
+        "svg[class*='MobilePhoneNumberstyles__USFlagIconStyled']"
+      ],
+      "urlPattern": ".*/account-verification/|.*/dashboard/upload-a-bill/",
       "waitForSelector": "input[name='phoneNumber']"
     },
     "SMS Verification Code AU": {
@@ -753,33 +759,6 @@
       ],
       "urlPattern": "/signup/",
       "waitForSelector": "input[type='email']"
-    },
-    "Signup Form Alternative": {
-      "fields": [
-        {
-          "delay": 50,
-          "description": "Email address",
-          "selector": "input[name='email']",
-          "type": "input",
-          "value": "test_{firstName}.{lastName}.t{time}@tfbnw.net"
-        },
-        {
-          "delay": 50,
-          "description": "Password",
-          "selector": "input[name='password']",
-          "type": "input",
-          "value": "TestPassword123!"
-        },
-        {
-          "delay": 50,
-          "description": "Accept terms and conditions",
-          "selector": "input[name='acceptTerms']",
-          "type": "checkbox",
-          "value": "true"
-        }
-      ],
-      "urlPattern": "/signup/",
-      "waitForSelector": "input[name='email']"
     },
     "Upload Bill Form": {
       "fields": [
