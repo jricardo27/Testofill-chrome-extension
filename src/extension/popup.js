@@ -25,6 +25,14 @@ function renderForTab(tab) {
       chrome.storage.local.set({ 'testofill.floatingIconEnabled': e.target.checked });
     });
 
+    const toggleAutorunCB = document.getElementById('toggleAutorun');
+    chrome.storage.local.get(['testofill.autorunEnabled'], (res) => {
+      toggleAutorunCB.checked = res['testofill.autorunEnabled'] !== false;
+    });
+    toggleAutorunCB.addEventListener('change', (e) => {
+      chrome.storage.local.set({ 'testofill.autorunEnabled': e.target.checked });
+    });
+
     document.getElementById('runWorkflow').addEventListener('click', () => handleRunWorkflow(tab));
     document.getElementById('liveTest').addEventListener('click', () => {
       integr.sendMessageToContentScript(tab, "toggle_live_test", {})

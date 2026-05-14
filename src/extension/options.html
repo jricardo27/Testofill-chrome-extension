@@ -48,6 +48,20 @@
               padding: 2px;
               background-color: #D5DDF6;
           }
+          .settings-panel {
+              margin-bottom: 12px;
+              padding: 8px 12px;
+              background-color: #eef2ff;
+              border: 1px solid #c3ccf5;
+              border-radius: 4px;
+              display: inline-flex;
+              gap: 24px;
+              align-items: center;
+          }
+          .settings-panel label {
+              cursor: pointer;
+              font-size: 14px;
+          }
           .status-msg {
               padding: 5px;
           }
@@ -68,6 +82,13 @@
     <p>
         (Beware: Escape special RegExp characters such as <code>.</code> and <code>?</code> with <code>\</code> if you want to include them literally in the URL.)
     </p>
+
+    <div class="settings-panel">
+        <label>
+            <input type="checkbox" id="toggleAutorun" checked>
+            <strong>Enable Autorun</strong> — automatically fill forms with <code>"autorun": true</code> on page load
+        </label>
+    </div>
 
     <section>
         <div id="editor-col">

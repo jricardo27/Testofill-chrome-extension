@@ -162,9 +162,10 @@ function setBadgeAndIconAction(tabId, ruleSets) {
 }
 
 async function triggerAutofillingIfEnabled(tab, ruleSets) {
-  // todo check if autofill enabled ...
   const access = await integr.hasDomainPermission(tab);
-  access && sendMessageToContentScript(tab, "fill_form", ruleSets[0]); // TODO Defaulting to 1st ruleSet not so smart?
+  if (access) {
+    sendMessageToContentScript(tab, "trigger_autorun", {});
+  }
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ listeners:installationOf

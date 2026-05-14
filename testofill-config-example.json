@@ -211,6 +211,7 @@
       "waitForSelector": "#payment-element"
     },
     "Personal Information - Both Services": {
+      "autorun": true,
       "fields": [
         {
           "delay": 50,
@@ -241,7 +242,7 @@
           "value": "25"
         },
         {
-          "delay": 150,
+          "delay": 300,
           "description": "Birth month (November)",
           "selector": "input[name='birthDate-month']",
           "type": "select",
@@ -608,6 +609,7 @@
       "waitForSelector": "input[name='firstName']"
     },
     "Phone Verification - AU": {
+      "autorun": true,
       "fields": [
         {
           "delay": 100,
@@ -622,6 +624,7 @@
       "waitForSelector": "#phone_number"
     },
     "Phone Verification - US": {
+      "autorun": true,
       "fields": [
         {
           "delay": 100,
@@ -635,50 +638,8 @@
       "urlPattern": ".*us.*/account-verification/|.*us.*/dashboard/upload-a-bill/",
       "waitForSelector": "input[name='phoneNumber']"
     },
-    "SMS Verification Code US": {
-      "fields": [
-        {
-          "delay": 50,
-          "selector": "#verification_code__0",
-          "type": "input",
-          "value": "{lastPhoneUSDigit:0}"
-        },
-        {
-          "delay": 50,
-          "selector": "#verification_code__1",
-          "type": "input",
-          "value": "{lastPhoneUSDigit:1}"
-        },
-        {
-          "delay": 50,
-          "selector": "#verification_code__2",
-          "type": "input",
-          "value": "{lastPhoneUSDigit:2}"
-        },
-        {
-          "delay": 50,
-          "selector": "#verification_code__3",
-          "type": "input",
-          "value": "{lastPhoneUSDigit:3}"
-        },
-        {
-          "delay": 50,
-          "selector": "#verification_code__4",
-          "type": "input",
-          "value": "{lastPhoneUSDigit:4}"
-        },
-        {
-          "delay": 50,
-          "selector": "#verification_code__5",
-          "type": "input",
-          "value": "{lastPhoneUSDigit:5}"
-        }
-      ],
-      "requiredSelector": "span:contains('Enter your verification code')",
-      "urlPattern": ".*us.*/account-verification/|.*us.*/upload-a-bill",
-      "waitForSelector": "#verification_code__0"
-    },
     "SMS Verification Code AU": {
+      "autorun": true,
       "fields": [
         {
           "delay": 50,
@@ -721,7 +682,52 @@
       "urlPattern": ".*au.*/account-verification/|.*au.*/upload-a-bill",
       "waitForSelector": "#verification_code__0"
     },
+    "SMS Verification Code US": {
+      "autorun": true,
+      "fields": [
+        {
+          "delay": 50,
+          "selector": "#verification_code__0",
+          "type": "input",
+          "value": "{lastPhoneUSDigit:0}"
+        },
+        {
+          "delay": 50,
+          "selector": "#verification_code__1",
+          "type": "input",
+          "value": "{lastPhoneUSDigit:1}"
+        },
+        {
+          "delay": 50,
+          "selector": "#verification_code__2",
+          "type": "input",
+          "value": "{lastPhoneUSDigit:2}"
+        },
+        {
+          "delay": 50,
+          "selector": "#verification_code__3",
+          "type": "input",
+          "value": "{lastPhoneUSDigit:3}"
+        },
+        {
+          "delay": 50,
+          "selector": "#verification_code__4",
+          "type": "input",
+          "value": "{lastPhoneUSDigit:4}"
+        },
+        {
+          "delay": 50,
+          "selector": "#verification_code__5",
+          "type": "input",
+          "value": "{lastPhoneUSDigit:5}"
+        }
+      ],
+      "requiredSelector": "span:contains('Enter your verification code')",
+      "urlPattern": ".*us.*/account-verification/|.*us.*/upload-a-bill",
+      "waitForSelector": "#verification_code__0"
+    },
     "Signup Form": {
+      "autorun": true,
       "fields": [
         {
           "delay": 50,
@@ -807,37 +813,7 @@
       ],
       "urlPattern": "/settings|/profile",
       "waitForSelector": "input[name='email']"
-    },
-    "https://au.local.deferit.net/signup/?next=": [
-      {
-        "fields": [
-          {
-            "query": "[name='email']",
-            "value": "test_{firstName}.{lastName}.t{time}@tfbnw.net"
-          },
-          {
-            "query": "[name='password']",
-            "value": "TestPassword123!"
-          },
-          {
-            "query": "[name='accept_policies']",
-            "value": true
-          }
-        ],
-        "name": "TODO Name this signup-form"
-      }
-    ],
-    "https://us.local.deferit.net/dashboard/membership/": [
-      {
-        "fields": [
-          {
-            "query": "[id='stripe-text-input-card-name']",
-            "value": "John Stuart"
-          }
-        ],
-        "name": "Fill Card Name"
-      }
-    ]
+    }
   },
   "name": "Deferit App - Enhanced Testofill Configuration",
   "notes": [
@@ -909,18 +885,18 @@
         "email": "test_{firstName}.{lastName}.t{time}@tfbnw.net",
         "firstName": "{firstName}",
         "lastName": "IATIDAccCCAccJohnson{timestamp}",
-        "phone": "{phoneAU}",
+        "phone": "+61400{random6}",
         "postcode": "10001",
-        "verificationCode": "{lastPhoneAU6}"
+        "verificationCode": "{random6}"
       },
       "au_declined_card": {
         "address": "654 Market Street, San Francisco CA 94103",
         "email": "test_{firstName}.{lastName}.t{time}@tfbnw.net",
         "firstName": "{firstName}",
         "lastName": "IATIDAccCCAccBrown{timestamp}",
-        "phone": "{phoneAU}",
+        "phone": "+61400{random6}",
         "postcode": "94103",
-        "verificationCode": "{lastPhoneAU6}"
+        "verificationCode": "{random6}"
       },
       "au_happy_path": {
         "address": "123 George Street, Sydney NSW 2000",
@@ -940,7 +916,7 @@
         "phone": "{phoneAU}",
         "postcode": "2000",
         "ssn": null,
-        "verificationCode": "{lastPhoneAU6}"
+        "verificationCode": "{random6}"
       },
       "au_pay_it_only": {
         "address": "789 George Street, Sydney NSW 2000",
@@ -950,14 +926,14 @@
         "phone": "{phoneAU}",
         "postcode": "2000",
         "ssn": null,
-        "verificationCode": "{lastPhoneAU6}"
+        "verificationCode": "{random6}"
       },
       "us_deceased": {
         "address": "321 Broadway, New York NY 10001",
         "email": "test_{firstName}.deceased.t{time}@tfbnw.net",
         "firstName": "Sarah",
         "lastName": "IATIDAccCCHardFailDead{timestamp}",
-        "phone": "{phoneUS}",
+        "phone": "+1500{random6}",
         "postcode": "10001",
         "ssn": "222-02-{random4}",
         "verificationCode": "{lastPhoneUS6}"
@@ -1011,7 +987,7 @@
       }
     }
   },
-  "version": "2.0.0",
+  "version": "2.0.1",
   "workflows": {
     "Account Creation": {
       "autoSubmit": false,

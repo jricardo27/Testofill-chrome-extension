@@ -183,6 +183,16 @@ function init() {
     showStatus("Configuration reset to the saved one", "info");
   });
 
+  // Autorun toggle
+  const autorunCB = document.getElementById('toggleAutorun');
+  chrome.storage.local.get(['testofill.autorunEnabled'], (res) => {
+    autorunCB.checked = res['testofill.autorunEnabled'] !== false; // default true
+  });
+  autorunCB.addEventListener('change', (e) => {
+    chrome.storage.local.set({ 'testofill.autorunEnabled': e.target.checked });
+    showStatus(e.target.checked ? "Autorun enabled." : "Autorun disabled.", "info");
+  });
+
 }
 
 document.addEventListener('DOMContentLoaded', init);
