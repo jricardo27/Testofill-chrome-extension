@@ -193,6 +193,16 @@ function init() {
     showStatus(e.target.checked ? "Autorun enabled." : "Autorun disabled.", "info");
   });
 
+  // Debug Log toggle
+  const debugLogCB = document.getElementById('toggleDebugLog');
+  chrome.storage.local.get(['testofill.debugLogEnabled'], (res) => {
+    debugLogCB.checked = res['testofill.debugLogEnabled'] === true; // default false
+  });
+  debugLogCB.addEventListener('change', (e) => {
+    chrome.storage.local.set({ 'testofill.debugLogEnabled': e.target.checked });
+    showStatus(e.target.checked ? "Debug Logging enabled." : "Debug Logging disabled.", "info");
+  });
+
 }
 
 document.addEventListener('DOMContentLoaded', init);
