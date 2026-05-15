@@ -3,7 +3,24 @@
  * invoked by messages from the extension (via event.js).
  */
 (function () {
-  const logger = window.testofillLogger || console;
+  let isDebugLogEnabled = false;
+if (typeof chrome !== 'undefined' && chrome.storage) {
+  chrome.storage.local.get(['testofill.debugLogEnabled'], (res) => {
+    isDebugLogEnabled = res['testofill.debugLogEnabled'] === true; 
+  });
+  chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (namespace === 'local' && changes['testofill.debugLogEnabled']) {
+      isDebugLogEnabled = changes['testofill.debugLogEnabled'].newValue === true;
+    }
+  });
+}
+
+const logger = {
+  log: (...args) => { if (isDebugLogEnabled) console.log(...args); },
+  warn: (...args) => { if (isDebugLogEnabled) console.warn(...args); },
+  debug: (...args) => { if (isDebugLogEnabled) console.debug(...args); },
+  error: (...args) => { console.error(...args); }
+};
 
   const FLOATING_UI_CSS = `
   #testofill-floating-ui {
@@ -157,14 +174,14 @@
   // Helper for local matching within content script
   async function matchRulesLocally(currentUrl) {
     if (typeof chrome === 'undefined' || !chrome.runtime?.id) return [];
-    console.warn("[Testofill DEBUG] matchRulesLocally called for URL:", currentUrl);
+    logger.debug("[Testofill DEBUG] matchRulesLocally called for URL:", currentUrl);
     const data = await chrome.storage.local.get('testofill.rules');
     const rules = data['testofill.rules'] || {};
     if (!rules.forms) {
-      console.warn("[Testofill DEBUG] No rules.forms found in chrome.storage.local!");
+      logger.debug("[Testofill DEBUG] No rules.forms found in chrome.storage.local!");
       return [];
     }
-    console.warn("[Testofill DEBUG] Total forms in config:", Object.keys(rules.forms).length);
+    logger.debug("[Testofill DEBUG] Total forms in config:", Object.keys(rules.forms).length);
 
     let matches = [];
     const environments = rules.environments || {};
@@ -180,7 +197,7 @@
       }
       if (country) break;
     }
-    console.warn("[Testofill DEBUG] Detected country context:", country);
+    logger.debug("[Testofill DEBUG] Detected country context:", country);
 
     for (const formName in rules.forms) {
       const formDef = rules.forms[formName];
@@ -205,12 +222,12 @@
               const selectors = Array.isArray(reqSel) ? reqSel : [reqSel];
               const missingSel = selectors.find(sel => Sizzle(sel).length === 0);
               if (missingSel) {
-                console.warn(`[Testofill DEBUG] '${formName}' URL matched but selector NOT FOUND in DOM: '${missingSel}'`);
+                logger.debug(`[Testofill DEBUG] '${formName}' URL matched but selector NOT FOUND in DOM: '${missingSel}'`);
                 continue;
               }
             }
             const reqSelLog = typeof reqSel === 'object' ? JSON.stringify(reqSel) : (reqSel || 'none');
-            console.warn(`[Testofill DEBUG] '${formName}' MATCHED. autorun=${!!formDef.autorun}, reqSel='${reqSelLog}' FOUND in DOM.`);
+            logger.debug(`[Testofill DEBUG] '${formName}' MATCHED. autorun=${!!formDef.autorun}, reqSel='${reqSelLog}' FOUND in DOM.`);
             matches.push({ ...formDef, name: formName, context: { country } });
           }
         } catch (e) {
@@ -218,7 +235,7 @@
         }
       }
     }
-    console.warn(`[Testofill DEBUG] matchRulesLocally result: ${matches.length} match(es):`, matches.map(m => m.name));
+    logger.debug(`[Testofill DEBUG] matchRulesLocally result: ${matches.length} match(es):`, matches.map(m => m.name));
     return matches;
   }
 
@@ -295,7 +312,7 @@
     const currentUrl = document.location.toString();
     matchRulesLocally(currentUrl).then(matches => {
       const hash = currentUrl + "|" + JSON.stringify(matches.map(m => m.name));
-      console.warn(`[Testofill DEBUG] updateAvailableForms: url='${currentUrl}' hash changed=${hash !== lastMatchesHash}`);
+      logger.debug(`[Testofill DEBUG] updateAvailableForms: url='${currentUrl}' hash changed=${hash !== lastMatchesHash}`);
       const hashChanged = hash !== lastMatchesHash;
       lastMatchesHash = hash;
 
@@ -304,11 +321,11 @@
         chrome.storage.local.get(['testofill.autorunEnabled']).then(res => {
           const autorunEnabled = res['testofill.autorunEnabled'] !== false; // default true
           if (!autorunEnabled) {
-            console.warn('[Testofill DEBUG] Autorun is disabled via popup toggle.');
+            logger.debug('[Testofill DEBUG] Autorun is disabled via popup toggle.');
             return;
           }
           const autoRunMatches = matches.filter(m => m.autorun);
-          console.warn(`[Testofill DEBUG] autorun candidates: ${autoRunMatches.length}`, autoRunMatches.map(m => m.name));
+          logger.debug(`[Testofill DEBUG] autorun candidates: ${autoRunMatches.length}`, autoRunMatches.map(m => m.name));
           if (autoRunMatches.length > 0) {
             logger.log("Testofill: Auto-running forms", autoRunMatches.map(m => m.name));
             autoRunMatches.forEach(m => fillForms(m));
@@ -338,7 +355,7 @@
   const observer = new MutationObserver((mutations) => {
     _observerFireCount++;
     if (_observerFireCount <= 3 || _observerFireCount % 50 === 0) {
-      console.warn(`[Testofill DEBUG] MutationObserver fired (#${_observerFireCount}), scheduling updateAvailableForms`);
+      logger.debug(`[Testofill DEBUG] MutationObserver fired (#${_observerFireCount}), scheduling updateAvailableForms`);
     }
     debouncedUpdate();
   });
@@ -649,7 +666,7 @@
   /* Apply the selected rule set to the current page, filling its form(s). */
   async function fillForms(ruleSet) {
     if (typeof ruleSet === 'undefined') return;
-    console.warn(`[Testofill DEBUG] fillForms called for '${ruleSet.name}', url='${document.location}'`);
+    logger.debug(`[Testofill DEBUG] fillForms called for '${ruleSet.name}', url='${document.location}'`);
 
     const data = await chrome.storage.local.get('testofill.rules');
     const rules = data['testofill.rules'] || {};
@@ -661,7 +678,7 @@
       const selectors = Array.isArray(ruleSet.requiredSelector) ? ruleSet.requiredSelector : [ruleSet.requiredSelector];
       const missingSel = selectors.find(sel => Sizzle(sel).length === 0);
       if (missingSel) {
-        console.warn(`[Testofill DEBUG] fillForms ABORTED - requiredSelector '${missingSel}' not in DOM`);
+        logger.debug(`[Testofill DEBUG] fillForms ABORTED - requiredSelector '${missingSel}' not in DOM`);
         logger.log(`Testofill: Aborting, required selector '${missingSel}' not found.`);
         return;
       }
@@ -1055,7 +1072,7 @@
     const _origPushState = history.pushState.bind(history);
     const _origReplaceState = history.replaceState.bind(history);
     function _onSpaNav() {
-      console.warn('[Testofill DEBUG] SPA navigation detected, resetting hash and updating forms');
+      logger.debug('[Testofill DEBUG] SPA navigation detected, resetting hash and updating forms');
       lastMatchesHash = "";
       debouncedUpdate();
     }

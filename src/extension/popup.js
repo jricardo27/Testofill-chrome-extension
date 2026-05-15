@@ -33,6 +33,14 @@ function renderForTab(tab) {
       chrome.storage.local.set({ 'testofill.autorunEnabled': e.target.checked });
     });
 
+    const toggleDebugLogCB = document.getElementById('toggleDebugLog');
+    chrome.storage.local.get(['testofill.debugLogEnabled'], (res) => {
+      toggleDebugLogCB.checked = res['testofill.debugLogEnabled'] === true; // Default false
+    });
+    toggleDebugLogCB.addEventListener('change', (e) => {
+      chrome.storage.local.set({ 'testofill.debugLogEnabled': e.target.checked });
+    });
+
     document.getElementById('runWorkflow').addEventListener('click', () => handleRunWorkflow(tab));
     document.getElementById('liveTest').addEventListener('click', () => {
       integr.sendMessageToContentScript(tab, "toggle_live_test", {})
